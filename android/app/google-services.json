@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "8898636023",
+    "firebase_url": "https://ksars-fc01d.firebaseio.com",
+    "project_id": "ksars-fc01d",
+    "storage_bucket": "ksars-fc01d.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:8898636023:android:c810c4775d52a54fad8bf2",
+        "android_client_info": {
+          "package_name": "com.example.ksars_smart"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "8898636023-8eeg60ino5ci8hs40nkd8tfuie6dusp1.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.ksars_smart",
+            "certificate_hash": "f5bfdcc9b7e2ae16cf723ca8c6b25785937a5702"
+          }
+        },
+        {
+          "client_id": "8898636023-e8cqct2foihk8dk6u4ivbhq9lpqt3i6r.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAw3l2WJW8BYQRcEKTxLb4UgWfrhCt1ins"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "8898636023-e8cqct2foihk8dk6u4ivbhq9lpqt3i6r.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
