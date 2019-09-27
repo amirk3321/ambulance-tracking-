@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:geoflutterfire/geoflutterfire.dart';
 import 'package:ksars_smart/model/user_entity.dart';
 
 class User {
@@ -7,6 +9,7 @@ class User {
   final String uid;
   final String phone;
   final String profile;
+  final GeoPoint point;
 
   User(
       {this.email = '',
@@ -14,8 +17,9 @@ class User {
       this.type = '',
       this.phone = '',
       this.uid = '',
-      this.profile = ''});
-
+      this.profile = '',
+      this.point
+      });
   User copyWith({
     String email,
     String name,
@@ -23,6 +27,7 @@ class User {
     String uid,
     String phone,
     String profile,
+    GeoPoint point,
   }) {
     return User(
       email: email ?? this.email,
@@ -31,6 +36,7 @@ class User {
       uid: uid ?? this.uid,
       phone: phone ?? this.phone,
       profile: profile ?? this.profile,
+      point: point ?? this.point,
     );
   }
 
@@ -41,7 +47,8 @@ class User {
       type.hashCode ^
       uid.hashCode ^
       phone.hashCode ^
-      profile.hashCode;
+      profile.hashCode ^
+      point.hashCode;
 
   @override
   bool operator ==(other) =>
@@ -53,15 +60,16 @@ class User {
           type == other.type &&
           uid == other.uid &&
           phone == other.phone &&
-          profile == other.profile;
+          profile == other.profile &&
+          point == other.point;
 
   @override
   String toString() =>
-      'User { email: $email, name: $name, uid: $uid profile $profile phone $phone type $type}';
+      'User { email: $email, name: $name, uid: $uid profile $profile phone $phone type $type, point $point}';
 
 
   UserEntity toEntity(){
-    return UserEntity(email,name,type,uid,phone,profile);
+    return UserEntity(email,name,type,uid,phone,profile,point);
   }
   static User fromEntity(UserEntity entity){
     return User(
@@ -71,6 +79,7 @@ class User {
       uid: entity.uid,
       phone: entity.phone,
       profile: entity.profile,
+      point: entity.point,
     );
   }
 }

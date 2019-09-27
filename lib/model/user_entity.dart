@@ -1,5 +1,7 @@
 import 'package:equatable/equatable.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:geoflutterfire/geoflutterfire.dart';
+import 'package:geoflutterfire/geoflutterfire.dart';
 
 class UserEntity extends Equatable{
   final String email;
@@ -8,8 +10,9 @@ class UserEntity extends Equatable{
   final String uid;
   final String phone;
   final String profile;
+  final GeoPoint point;
 
-  UserEntity(this.email,this.name,this.type,this.uid,this.phone,this.profile);
+  UserEntity(this.email,this.name,this.type,this.uid,this.phone,this.profile,this.point);
 
   Map<String,Object> toJson() =>{
     'email' :email,
@@ -18,10 +21,11 @@ class UserEntity extends Equatable{
     'uid' :uid,
     'phone' :phone,
     'profile' :profile,
+    'point' :point,
   };
   @override
   String toString() {
-    return 'UserEntity { email: $email name: $name, uid: $uid type $type phone $phone profile $profile}';
+    return 'UserEntity { email: $email name: $name, uid: $uid type $type phone $phone profile $profile point $point}';
   }
 
 
@@ -33,6 +37,7 @@ class UserEntity extends Equatable{
       json['uid'] as String,
       json['phone'] as String,
       json['profile'] as String,
+      json['point'] as GeoPoint,
     );
   }
 
@@ -44,6 +49,7 @@ class UserEntity extends Equatable{
       snap.data['uid'],
       snap.data['phone'],
       snap.data['profile'],
+      snap.data['point'],
     );
   }
   Map<String, Object> toDocument() {
@@ -54,6 +60,7 @@ class UserEntity extends Equatable{
       'uid': uid,
       'phone': phone,
       'profile': profile,
+      'point': point,
     };
   }
 }

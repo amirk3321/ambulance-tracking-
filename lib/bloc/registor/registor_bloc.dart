@@ -8,6 +8,7 @@ class RegistorBloc extends Bloc<RegistorEvent, RegistorState> {
 
   FirebaseRepository _repository;
 
+
   RegistorBloc({@required FirebaseRepository repository})
       : assert(repository != null),
         _repository = repository;
@@ -34,7 +35,8 @@ class RegistorBloc extends Bloc<RegistorEvent, RegistorState> {
         name: event.name,
         type: event.type,
         phone: event.phoneNumber,
-        profile: event.profile
+        profile: event.profile,
+        point: event.point
       );
       yield SuccessState();
     } catch (_) {

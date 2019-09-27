@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:geoflutterfire/geoflutterfire.dart';
 import 'package:ksars_smart/model/user.dart';
 import 'package:ksars_smart/model/user_entity.dart';
 import 'package:ksars_smart/repository/repoBase.dart';
@@ -22,7 +23,8 @@ class FirebaseRepository extends RepoBase {
       String name,
       String phone,
       String type,
-      String profile}) async {
+      String profile,
+      GeoPoint point}) async {
     _userCollection
         .document((await _firebaseAuth.currentUser()).uid)
         .get()
@@ -34,6 +36,7 @@ class FirebaseRepository extends RepoBase {
                 name: name,
                 type: type,
                 phone: phone,
+                point: point,
                 uid: (await _firebaseAuth.currentUser()).uid)
             .toEntity()
             .toDocument();

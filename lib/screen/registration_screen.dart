@@ -1,9 +1,14 @@
+import 'dart:async';
+
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:geoflutterfire/geoflutterfire.dart';
 import 'package:ksars_smart/app_constent.dart';
 import 'package:ksars_smart/bloc/auth/bloc.dart';
 import 'package:ksars_smart/bloc/registor/bloc.dart';
 import 'package:ksars_smart/repository/firebase_repository.dart';
+import 'package:location/location.dart';
 
 class RegistrationScreen extends StatefulWidget {
   RegistrationScreen({Key key}) : super(key: key);
@@ -27,18 +32,27 @@ class RegistrationScreenState extends State<RegistrationScreen> {
       _phoneController.text.isNotEmpty &&
       _passwordController.text.isNotEmpty;
 
+  Geoflutterfire geo=Geoflutterfire();
+
+  GeoFirePoint point;
+  GeoPoint _point;
+  Location _location=Location();
   RegistorBloc _registorBloc;
 
   @override
-  void initState() {
+  void initState(){
     _registorBloc = RegistorBloc(repository: FirebaseRepository());
     _emailController = TextEditingController();
     _nameController = TextEditingController();
     _phoneController = TextEditingController();
     _passwordController = TextEditingController();
+    getMyLocation();
     super.initState();
   }
-
+  getMyLocation()async{
+    var data=await _location.getLocation();
+    _point=GeoPoint(data.latitude,data.longitude);
+  }
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -179,6 +193,7 @@ class RegistrationScreenState extends State<RegistrationScreen> {
                         phoneNumber: _phoneController.text,
                         password: _passwordController.text,
                         profile: '',
+                        point: _point,
                         type: _isTypeOfUser ? AppConst.patient : AppConst.ambulance
                       )
                     );
@@ -208,5 +223,9 @@ class RegistrationScreenState extends State<RegistrationScreen> {
             border: InputBorder.none, prefixIcon: icon, hintText: hint),
       ),
     );
+  }
+  @override
+  void dispose() {
+    super.dispose();
   }
 }
