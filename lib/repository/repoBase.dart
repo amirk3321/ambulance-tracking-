@@ -10,4 +10,5 @@ abstract class RepoBase{
   Future<void> getInitializedCurrentUser();
   Future<void> onUpdateUserInfo({String name,String profile,String phoneNumber,});
   Stream<List<User>> users();
+  Future<void> getCreateLocationChannel({String otherUID,Function onComplete(String locationChannelId)});
 }

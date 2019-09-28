@@ -8,7 +8,10 @@ import 'package:geoflutterfire/geoflutterfire.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:ksars_smart/app_constent.dart';
 import 'package:ksars_smart/bloc/auth/bloc.dart';
+import 'package:ksars_smart/bloc/request/ambulance_request_bloc.dart';
+import 'package:ksars_smart/bloc/request/ambulance_request_event.dart';
 import 'package:ksars_smart/bloc/user/bloc.dart';
+import 'package:ksars_smart/repository/firebase_repository.dart';
 import 'package:location/location.dart';
 
 class GoogleScreen extends StatefulWidget {
@@ -34,7 +37,9 @@ class GoogleScreenState extends State<GoogleScreen> {
 
   //controller bool variable
   bool isNormal = false;
-  var _isShowScaffoldSnakeBar = true;
+  bool _isShowScaffoldSnakeBar = true;
+  bool isPickAmbulance = true;
+  bool isSowAmbulance = true;
 
   //list of markers
   Map<MarkerId, Marker> setMarkers = <MarkerId, Marker>{};
@@ -45,6 +50,9 @@ class GoogleScreenState extends State<GoogleScreen> {
   LatLng latLng;
   GeoFirePoint point;
   Location _location = Location();
+
+  //testRequest
+  FirebaseRepository repository = FirebaseRepository();
 
   //create map
   void _onMapCreated(GoogleMapController controller) {
@@ -188,12 +196,7 @@ class GoogleScreenState extends State<GoogleScreen> {
                             _isShowScaffoldSnakeBar = false;
                           });
                         },
-                        onTap: (location) {
-                          if (user.type == AppConst.patient)
-                            _setAmbulance(state);
-                          else
-                            print('you are not patient');
-                        },
+                        onTap: (location) {},
                         myLocationEnabled: true,
                         myLocationButtonEnabled: false,
                         markers: Set<Marker>.of(setMarkers.values),
@@ -302,7 +305,19 @@ class GoogleScreenState extends State<GoogleScreen> {
                                     child: IconButton(
                                       tooltip: "Ambulance tracker",
                                       icon: Icon(Icons.directions_bus),
-                                      onPressed: () {},
+                                      onPressed: () {
+                                        setState(() {
+                                          if (isSowAmbulance == true) {
+                                            _setAmbulance(state);
+                                            isSowAmbulance = false;
+                                          } else {
+                                            isSowAmbulance = true;
+                                            _removeAmbulanceMarker(state);
+                                          }
+                                          print(
+                                              "isSowAmbulance $isSowAmbulance");
+                                        });
+                                      },
                                     ),
                                   ),
                                   SizedBox(
@@ -344,20 +359,24 @@ class GoogleScreenState extends State<GoogleScreen> {
     );
   }
 
+  _removeAmbulanceMarker(UsersLoaded state) async {
+    var users =
+        state.user.where((user) => user.type == AppConst.ambulance).toList();
+  }
+
   _setAmbulance(UsersLoaded state) async {
     var users =
         state.user.where((user) => user.type == AppConst.ambulance).toList();
     final Uint8List markerIcon =
         await getBytesFromAsset("assets/ambulance.png", 100);
     users.forEach((user) {
-      if (!setMarkers.containsValue(user.uid)) {
+      if (!setMarkers.containsKey(user.uid)) {
         MarkerId markerId = MarkerId(user.uid);
         Marker marker = Marker(
           markerId: markerId,
           onTap: () {
-            Scaffold.of(context).showSnackBar(
-                SnackBar(
-                  duration: Duration(minutes: 3),
+            Scaffold.of(context).showSnackBar(SnackBar(
+              duration: Duration(minutes: 3),
               content: Container(
                 child: SingleChildScrollView(
                   child: Row(
@@ -367,29 +386,37 @@ class GoogleScreenState extends State<GoogleScreen> {
                         width: 60.0,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          border:
-                          Border.all(color: const Color(0x33A6A6A6)),
+                          border: Border.all(color: const Color(0x33A6A6A6)),
                           // image: new Image.asset(_image.)
                         ),
                         child: Image.asset('assets/default.png'),
                       ),
-
                       Container(
-                        margin: EdgeInsets.only(top: 20,left: 5),
+                        margin: EdgeInsets.only(top: 20, left: 5),
                         height: 80,
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: <Widget>[
-                            Text(user.name,style: TextStyle(fontWeight: FontWeight.bold),),
+                            Text(
+                              user.name,
+                              style: TextStyle(fontWeight: FontWeight.bold),
+                            ),
                             Text(user.email),
                             Text(user.phone),
                           ],
                         ),
                       ),
-                      SizedBox(width: 5,),
+                      SizedBox(
+                        width: 5,
+                      ),
                       RaisedButton(
-                        onPressed: (){},
-                        child: Text('pick'),
+                        onPressed: () async {
+                          print("AmbulanceRequestBloc button pressed");
+                          BlocProvider.of<AmbulanceRequestBloc>(context).dispatch(
+                            AmbulanceRequestCancel(otherUID: user.uid)
+                          );
+                        },
+                        child: Text("Pick"),
                       ),
                     ],
                   ),

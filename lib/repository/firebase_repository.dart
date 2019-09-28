@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:geoflutterfire/geoflutterfire.dart';
+import 'package:ksars_smart/model/communication_channel.dart';
 import 'package:ksars_smart/model/user.dart';
 import 'package:ksars_smart/model/user_entity.dart';
 import 'package:ksars_smart/repository/repoBase.dart';
@@ -8,6 +9,9 @@ import 'package:ksars_smart/repository/repoBase.dart';
 class FirebaseRepository extends RepoBase {
   FirebaseAuth _firebaseAuth;
   final _userCollection = Firestore.instance.collection('user');
+  final _locationChannels = Firestore.instance.collection('locationChannels');
+  final _ambulancePickRequest =
+      Firestore.instance.collection('_ambulancePickRequest');
 
   FirebaseRepository({FirebaseRepository firebaseUserRepository})
       : _firebaseAuth = firebaseUserRepository ?? FirebaseAuth.instance;
@@ -70,13 +74,17 @@ class FirebaseRepository extends RepoBase {
 
   @override
   Future<void> onUpdateUserInfo(
-      {String name, String profile, String phoneNumber, String uid,GeoPoint point}) async {
+      {String name,
+      String profile,
+      String phoneNumber,
+      String uid,
+      GeoPoint point}) async {
     Map<String, Object> updateUser = Map();
 
     if (name.isNotEmpty) updateUser['name'] = name;
     if (profile != null) updateUser['profile'] = profile;
     if (phoneNumber != null) updateUser['profile'] = profile;
-    if (point!=null) updateUser['position'] =point;
+    if (point != null) updateUser['position'] = point;
     _userCollection.document(uid).updateData(updateUser);
   }
 
@@ -88,5 +96,100 @@ class FirebaseRepository extends RepoBase {
               User.fromEntity(UserEntity.fromSnapshot(docSnapshot)))
           .toList();
     });
+  }
+
+  @override
+  Future<void> getCreateLocationChannel(
+      {String otherUID, Function onComplete}) async {
+    _userCollection
+        .document((await _firebaseAuth.currentUser()).uid)
+        .collection('engagedLocationChannels')
+        .document(otherUID)
+        .get()
+        .then((snapshot) async {
+      if (snapshot.exists) {
+        onComplete(snapshot.data['channelId']);
+        return;
+      }
+      String currentUID = (await _firebaseAuth.currentUser()).uid;
+
+      var newLocationChannel = _locationChannels.document();
+
+      newLocationChannel.setData(
+          CommunicationChannel(userIds: [currentUID, otherUID]).toDocument());
+
+      var channel = {'channelId': newLocationChannel.documentID};
+
+      _userCollection
+          .document((await _firebaseAuth.currentUser()).uid)
+          .collection('engagedLocationChannels')
+          .document(otherUID)
+          .setData(channel);
+
+      Firestore.instance
+          .collection('user')
+          .document(otherUID)
+          .collection('engagedLocationChannels')
+          .document((await _firebaseAuth.currentUser()).uid)
+          .setData(channel);
+
+      onComplete(newLocationChannel.documentID);
+    }).catchError((Exception e) =>
+            print("getCreateLocationChannel :${e.toString()}"));
+  }
+
+  Future<void> getAmbulancePickRequest({String otherUID}) async {
+    _userCollection
+        .document((await _firebaseAuth.currentUser()).uid)
+        .collection('ambulanceRequest')
+        .document(otherUID)
+        .get()
+        .then((snapshot) async {
+        if (snapshot.exists){
+         return;
+        }
+        _userCollection
+            .document((await _firebaseAuth.currentUser()).uid)
+            .collection('ambulanceRequest')
+            .document(otherUID)
+            .setData({"request_type":"sent"});
+
+        Firestore.instance
+            .collection('user')
+            .document(otherUID)
+            .collection('ambulanceRequest')
+            .document((await _firebaseAuth.currentUser()).uid)
+            .setData({"request_type":"received"});
+
+    }).catchError((Exception e) =>print("getAmbulancePickRequest ${e.toString()}"));
+  }
+
+  Future<void> getDeleteAmbulancePickRequest({String otherUID}) async {
+    _userCollection
+        .document((await _firebaseAuth.currentUser()).uid)
+        .collection('ambulanceRequest')
+        .document(otherUID)
+        .get()
+        .then((snapshot) async {
+      if (snapshot.exists){
+        _userCollection
+            .document((await _firebaseAuth.currentUser()).uid)
+            .collection('ambulanceRequest')
+            .document(otherUID)
+            .delete();
+
+        Firestore.instance
+            .collection('user')
+            .document(otherUID)
+            .collection('ambulanceRequest')
+            .document((await _firebaseAuth.currentUser()).uid)
+            .delete();
+        return;
+      }else{
+        print('there is not any requst?');
+        return;
+      }
+
+    }).catchError((Exception e) =>print("getDeleteAmbulancePickRequest ${e.toString()}"));
   }
 }

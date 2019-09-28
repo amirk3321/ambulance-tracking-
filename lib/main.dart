@@ -1,6 +1,7 @@
 import 'package:bloc/bloc.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:ksars_smart/bloc/request/ambulance_request_bloc.dart';
 import 'package:ksars_smart/repository/firebase_repository.dart';
 import 'package:ksars_smart/screen/HomeScreen.dart';
 import 'package:ksars_smart/screen/login_screen.dart';
@@ -32,7 +33,8 @@ class myAppState extends State<myApp> {
         BlocProvider<UserBloc>(
           builder: (_) =>
               UserBloc(repository: FirebaseRepository())..dispatch(LoadUser()),
-        )
+        ),
+        BlocProvider<AmbulanceRequestBloc>(builder: (_) => AmbulanceRequestBloc(repository: FirebaseRepository()),)
       ],
       child: MaterialApp(
         debugShowCheckedModeBanner: false,
