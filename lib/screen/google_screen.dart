@@ -1,16 +1,21 @@
 import 'dart:math';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:geoflutterfire/geoflutterfire.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:intl/intl.dart';
 import 'package:ksars_smart/app_constent.dart';
 import 'package:ksars_smart/bloc/auth/bloc.dart';
 import 'package:ksars_smart/bloc/request/ambulance_request_bloc.dart';
 import 'package:ksars_smart/bloc/request/ambulance_request_event.dart';
+import 'package:ksars_smart/bloc/request/ambulance_request_state.dart';
 import 'package:ksars_smart/bloc/user/bloc.dart';
+import 'package:ksars_smart/model/paitent.dart';
+import 'package:ksars_smart/model/user.dart';
 import 'package:ksars_smart/repository/firebase_repository.dart';
 import 'package:location/location.dart';
 
@@ -66,9 +71,11 @@ class GoogleScreenState extends State<GoogleScreen> {
   void initState() {
     _addCurrentMarker();
     _location.onLocationChanged().listen((locationData) {
-      latLng = LatLng(locationData.latitude, locationData.longitude);
-      point = geo.point(
-          latitude: locationData.latitude, longitude: locationData.longitude);
+      setState(() {
+        latLng = LatLng(locationData.latitude, locationData.longitude);
+        point = geo.point(
+            latitude: locationData.latitude, longitude: locationData.longitude);
+      });
       //_addCurrentMarker(locationData.latitude, locationData.longitude);
     });
     super.initState();
@@ -79,8 +86,8 @@ class GoogleScreenState extends State<GoogleScreen> {
     return BlocBuilder<UserBloc, UserState>(
       builder: (context, state) {
         if (state is UsersLoaded) {
-          final user = state.user
-              .firstWhere((user) => user.uid == widget.uid, orElse: () => null);
+          final user = state.user.firstWhere((user) => user.uid == widget.uid,
+              orElse: () => User());
 
           final ambulance = state.user
               .where((user) => user.type == AppConst.ambulance)
@@ -111,6 +118,12 @@ class GoogleScreenState extends State<GoogleScreen> {
                           ),
                           Text(
                             user.name.isNotEmpty ? user.name : 'John De',
+                          ),
+                          Text(
+                            user.type == AppConst.patient
+                                ? "Account Type ${AppConst.patient}"
+                                : "Account Type ${AppConst.ambulance}",
+                            style: TextStyle(),
                           ),
                         ],
                       ),
@@ -146,7 +159,10 @@ class GoogleScreenState extends State<GoogleScreen> {
             body: latLng == null
                 ? Container(
                     child: Center(
-                      child: CircularProgressIndicator(),
+                      child: RefreshIndicator(
+                        child: CircularProgressIndicator(),
+                        onRefresh: () {},
+                      ),
                     ),
                   )
                 : Stack(
@@ -265,7 +281,7 @@ class GoogleScreenState extends State<GoogleScreen> {
                                     child: IconButton(
                                       tooltip: "Paitent List",
                                       icon: Icon(Icons.notifications),
-                                      onPressed: () {},
+                                      onPressed: _bottomSheet,
                                     ),
                                   ),
                                   SizedBox(
@@ -359,16 +375,22 @@ class GoogleScreenState extends State<GoogleScreen> {
     );
   }
 
+  //not yet implemented
   _removeAmbulanceMarker(UsersLoaded state) async {
     var users =
         state.user.where((user) => user.type == AppConst.ambulance).toList();
   }
 
   _setAmbulance(UsersLoaded state) async {
+    var curentUserInfo =
+        state.user.firstWhere((user) => user.uid == widget.uid);
+
     var users =
         state.user.where((user) => user.type == AppConst.ambulance).toList();
+
     final Uint8List markerIcon =
         await getBytesFromAsset("assets/ambulance.png", 100);
+
     users.forEach((user) {
       if (!setMarkers.containsKey(user.uid)) {
         MarkerId markerId = MarkerId(user.uid);
@@ -382,8 +404,8 @@ class GoogleScreenState extends State<GoogleScreen> {
                   child: Row(
                     children: <Widget>[
                       Container(
-                        height: 60.0,
-                        width: 60.0,
+                        height: 80.0,
+                        width: 80.0,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           border: Border.all(color: const Color(0x33A6A6A6)),
@@ -393,7 +415,7 @@ class GoogleScreenState extends State<GoogleScreen> {
                       ),
                       Container(
                         margin: EdgeInsets.only(top: 20, left: 5),
-                        height: 80,
+                        height: 95,
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: <Widget>[
@@ -403,20 +425,44 @@ class GoogleScreenState extends State<GoogleScreen> {
                             ),
                             Text(user.email),
                             Text(user.phone),
+                            Container(
+                              height: 40,
+                              child: Row(
+                                children: <Widget>[
+                                  RaisedButton(
+                                    onPressed: () async {
+                                      print(
+                                          "AmbulanceRequestBloc cancel button pressed");
+                                      BlocProvider.of<AmbulanceRequestBloc>(
+                                              context)
+                                          .dispatch(AmbulanceRequestCancel(
+                                              otherUID: user.uid));
+                                    },
+                                    child: Text("cancel"),
+                                  ),
+                                  RaisedButton(
+                                    onPressed: () async {
+                                      print(
+                                          "AmbulanceRequestBloc button pressed");
+                                      BlocProvider.of<AmbulanceRequestBloc>(
+                                              context)
+                                          .dispatch(AmbulanceRequest(
+                                              otherUID: user.uid,
+                                              patient: Patient(
+                                                  name: curentUserInfo.name,
+                                                  uid: curentUserInfo.uid,
+                                                  profile:
+                                                      curentUserInfo.profile,
+                                                  time: Timestamp.now(),
+                                                  request_type: 'sent')));
+                                    },
+                                    child: Text("Pick"),
+                                  ),
+                                ],
+                              ),
+                            )
                           ],
                         ),
-                      ),
-                      SizedBox(
-                        width: 5,
-                      ),
-                      RaisedButton(
-                        onPressed: () async {
-                          print("AmbulanceRequestBloc button pressed");
-                          BlocProvider.of<AmbulanceRequestBloc>(context).dispatch(
-                            AmbulanceRequestCancel(otherUID: user.uid)
-                          );
-                        },
-                        child: Text("Pick"),
                       ),
                     ],
                   ),
@@ -507,4 +553,87 @@ class GoogleScreenState extends State<GoogleScreen> {
         .buffer
         .asUint8List();
   }
+
+  void _bottomSheet() {
+    showModalBottomSheet(
+        context: context,
+        builder: (builder) =>
+            BlocBuilder<AmbulanceRequestBloc, AmbulanceRequestState>(
+              builder: (BuildContext context, AmbulanceRequestState state) {
+                //final patient=(state as AmbulanceRequestLoaded).patient;
+
+                if (state is AmbulanceRequestLoaded) {
+                  return Container(
+                      color: Colors.grey,
+                      child: ListView.builder(
+                          itemCount: state.patient.length,
+                          itemBuilder: (BuildContext context, int index) {
+                            return singlePatientLayout(
+                              currentUID: state.patient[index].uid,
+                                profile: state.patient[index].profile == ''
+                                    ? 'assets/default.png'
+                                    : state.patient[index].profile,
+                                text: state.patient[index].name == ''
+                                    ? ''
+                                    : state.patient[index].name,
+                                time: DateFormat('hh:mm a').format(
+                                    state.patient[index].time.toDate()));
+                          }));
+                }
+                return Container(
+                  child: ListView.builder(itemBuilder: (builder, index) {
+                    return ListTile(
+                      title: Text("jo"),
+                      subtitle: Text("test"),
+                    );
+                  }),
+                );
+              },
+            ));
+  }
+
+  singlePatientLayout({text, time, profile,currentUID}) => Container(
+    color: Colors.white54,
+    padding: EdgeInsets.all(8),
+    margin: EdgeInsets.all(3),
+    child: Row(
+      children: <Widget>[
+        Container(
+          height: 50,
+          width: 50,
+          decoration:
+              BoxDecoration(borderRadius: BorderRadius.circular(50)),
+          child: Image.asset(profile),
+        ),
+        SizedBox(width: 5,),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Text(
+              text,
+              style: TextStyle(fontSize: 18),
+            ),
+            Text(
+              time,
+              style: TextStyle(fontSize: 14),
+            )
+          ],
+        ),
+        Spacer(),
+        FlatButton(onPressed: (){print('cancel');},child: Text('cancel'),),
+        FlatButton(onPressed: (){print('confirm uid $currentUID');},child: Text('Confirm'),)
+      ],
+    ),
+  );
 }
+
+/*
+
+                return ListTile(
+                  leading: Image.asset(state.patient[index].profile == "" ? "assets/default.png" : state.patient[index].profile),
+                  title: Text(state.patient[index].name == "" ?"" : state.patient[index].name),
+                  subtitle: Text(DateFormat('hh:mm a').format(state.patient[index].time.toDate())),
+                  trailing: RaisedButton(onPressed: (){} ,child: Text("Confirm"),),
+                );
+
+*/

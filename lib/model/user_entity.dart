@@ -1,7 +1,5 @@
 import 'package:equatable/equatable.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:geoflutterfire/geoflutterfire.dart';
-import 'package:geoflutterfire/geoflutterfire.dart';
 
 class UserEntity extends Equatable{
   final String email;

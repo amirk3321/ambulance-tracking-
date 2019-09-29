@@ -11,8 +11,17 @@ class AmbulanceRequestBloc
       : assert(repository != null),
         _repository = repository;
 
+  StreamSubscription _streamSubscription;
+
+
   @override
-  AmbulanceRequestState get initialState => InitialAmbulanceRequestState();
+  void dispose() {
+    _streamSubscription?.cancel();
+    super.dispose();
+  }
+
+  @override
+  AmbulanceRequestState get initialState => AmbulanceRequestLoading();
 
   @override
   Stream<AmbulanceRequestState> mapEventToState(
@@ -22,14 +31,35 @@ class AmbulanceRequestBloc
      yield* _mapAmbulanceRequestToState(event);
     }else if(event is AmbulanceRequestCancel){
       yield* _mapAmbulanceRequestCancelToState(event);
+    }else if (event is AmbulanceRequestLoad){
+      yield* _mapAmbulanceRequestLoadToState(event);
+    }else if(event is AmbulanceRequestUpdated){
+      yield* _mapAmbulanceRequestUpdatedToState(event);
     }
   }
 
  Stream<AmbulanceRequestState> _mapAmbulanceRequestToState(AmbulanceRequest event) async*{
-    await _repository.getAmbulancePickRequest(otherUID: event.otherUID);
+    await _repository.getAmbulancePickRequest(otherUID: event.otherUID,patient: event.patient);
  }
 
   Stream<AmbulanceRequestState> _mapAmbulanceRequestCancelToState(AmbulanceRequestCancel event) async*{
     await _repository.getDeleteAmbulancePickRequest(otherUID: event.otherUID);
   }
+
+  Stream<AmbulanceRequestState> _mapAmbulanceRequestLoadToState(AmbulanceRequestLoad event) async*{
+    print("testCurrentUid ${event.currentUID}");
+    _streamSubscription?.cancel();
+    _streamSubscription=_repository.patientList(event.currentUID).listen((patient){
+      dispatch(AmbulanceRequestUpdated(patient: patient));
+    });
+  }
+
+  Stream<AmbulanceRequestState> _mapAmbulanceRequestUpdatedToState(AmbulanceRequestUpdated event) async*{
+    yield AmbulanceRequestLoaded(event.patient);
+  }
+
+
+
+
+
 }

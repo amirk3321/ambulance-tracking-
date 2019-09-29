@@ -27,6 +27,9 @@ dependencies:
   equatable: ^0.5.1
   bloc: ^0.15.0
 
+  #dateFormat
+  intl: ^0.16.0
+
   #firebase
   firebase_auth: ^0.14.0+5
   cloud_firestore: ^0.12.9+4

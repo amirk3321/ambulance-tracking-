@@ -2,16 +2,17 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:geoflutterfire/geoflutterfire.dart';
 import 'package:ksars_smart/model/communication_channel.dart';
+import 'package:ksars_smart/model/paitent.dart';
+import 'package:ksars_smart/model/patientEntity.dart';
 import 'package:ksars_smart/model/user.dart';
 import 'package:ksars_smart/model/user_entity.dart';
 import 'package:ksars_smart/repository/repoBase.dart';
+import 'package:ksars_smart/utils/shared_pref.dart';
 
 class FirebaseRepository extends RepoBase {
   FirebaseAuth _firebaseAuth;
   final _userCollection = Firestore.instance.collection('user');
   final _locationChannels = Firestore.instance.collection('locationChannels');
-  final _ambulancePickRequest =
-      Firestore.instance.collection('_ambulancePickRequest');
 
   FirebaseRepository({FirebaseRepository firebaseUserRepository})
       : _firebaseAuth = firebaseUserRepository ?? FirebaseAuth.instance;
@@ -64,6 +65,7 @@ class FirebaseRepository extends RepoBase {
   Future<void> signInWithEmailPassword({String email, String password}) async {
     await _firebaseAuth.signInWithEmailAndPassword(
         email: email, password: password);
+    await SharedPref.setCurrentUID((await _firebaseAuth.currentUser()).uid);
   }
 
   @override
@@ -138,30 +140,31 @@ class FirebaseRepository extends RepoBase {
             print("getCreateLocationChannel :${e.toString()}"));
   }
 
-  Future<void> getAmbulancePickRequest({String otherUID}) async {
+  Future<void> getAmbulancePickRequest(
+      {String otherUID, Patient patient}) async {
     _userCollection
         .document((await _firebaseAuth.currentUser()).uid)
         .collection('ambulanceRequest')
         .document(otherUID)
         .get()
         .then((snapshot) async {
-        if (snapshot.exists){
-         return;
-        }
-        _userCollection
-            .document((await _firebaseAuth.currentUser()).uid)
-            .collection('ambulanceRequest')
-            .document(otherUID)
-            .setData({"request_type":"sent"});
+      if (snapshot.exists) {
+        return;
+      }
+      _userCollection
+          .document((await _firebaseAuth.currentUser()).uid)
+          .collection('ambulanceRequest')
+          .document(otherUID)
+          .setData({"request_type": "received"});
 
-        Firestore.instance
-            .collection('user')
-            .document(otherUID)
-            .collection('ambulanceRequest')
-            .document((await _firebaseAuth.currentUser()).uid)
-            .setData({"request_type":"received"});
-
-    }).catchError((Exception e) =>print("getAmbulancePickRequest ${e.toString()}"));
+      Firestore.instance
+          .collection('user')
+          .document(otherUID)
+          .collection('ambulanceRequest')
+          .document((await _firebaseAuth.currentUser()).uid)
+          .setData(patient.toEntity().toDocument());
+    }).catchError(
+            (Exception e) => print("getAmbulancePickRequest ${e.toString()}"));
   }
 
   Future<void> getDeleteAmbulancePickRequest({String otherUID}) async {
@@ -171,7 +174,7 @@ class FirebaseRepository extends RepoBase {
         .document(otherUID)
         .get()
         .then((snapshot) async {
-      if (snapshot.exists){
+      if (snapshot.exists) {
         _userCollection
             .document((await _firebaseAuth.currentUser()).uid)
             .collection('ambulanceRequest')
@@ -185,11 +188,25 @@ class FirebaseRepository extends RepoBase {
             .document((await _firebaseAuth.currentUser()).uid)
             .delete();
         return;
-      }else{
+      } else {
         print('there is not any requst?');
         return;
       }
+    }).catchError((Exception e) =>
+            print("getDeleteAmbulancePickRequest ${e.toString()}"));
+  }
 
-    }).catchError((Exception e) =>print("getDeleteAmbulancePickRequest ${e.toString()}"));
+  Stream<List<Patient>> patientList(String currentUID) {
+    return _userCollection
+        .document(currentUID)
+        .collection('ambulanceRequest')
+        .orderBy('time')
+        .snapshots()
+        .map((snapshot) {
+      return snapshot.documents
+          .map((snapshot) =>
+              Patient.fromEntity(PatientEntity.formSnapshot(snapshot)))
+          .toList();
+    });
   }
 }

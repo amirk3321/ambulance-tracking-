@@ -2,9 +2,11 @@ import 'package:bloc/bloc.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:ksars_smart/bloc/request/ambulance_request_bloc.dart';
+import 'package:ksars_smart/bloc/request/ambulance_request_event.dart';
 import 'package:ksars_smart/repository/firebase_repository.dart';
 import 'package:ksars_smart/screen/HomeScreen.dart';
 import 'package:ksars_smart/screen/login_screen.dart';
+import 'package:ksars_smart/utils/shared_pref.dart';
 import 'package:splashscreen/splashscreen.dart';
 import 'bloc/auth/bloc.dart';
 import 'bloc/delegate/simple_delegate.dart';
@@ -19,11 +21,21 @@ class myApp extends StatefulWidget {
   @override
   State<StatefulWidget> createState() => myAppState();
 }
-
 class myAppState extends State<myApp> {
+  String _uid;
+  AmbulanceRequestBloc _ambulanceRequestBloc=AmbulanceRequestBloc(repository: FirebaseRepository());
+
+  @override
+  void initState() {
+    SharedPref.getCurrentUID().then((value){
+      _ambulanceRequestBloc.dispatch(AmbulanceRequestLoad(value));
+    });
+
+
+    super.initState();
+  }
   @override
   Widget build(BuildContext context) {
-    // TODO: implement build
     return MultiBlocProvider(
       providers: [
         BlocProvider<AuthBloc>(
@@ -34,7 +46,7 @@ class myAppState extends State<myApp> {
           builder: (_) =>
               UserBloc(repository: FirebaseRepository())..dispatch(LoadUser()),
         ),
-        BlocProvider<AmbulanceRequestBloc>(builder: (_) => AmbulanceRequestBloc(repository: FirebaseRepository()),)
+        BlocProvider<AmbulanceRequestBloc>(builder: (_) => _ambulanceRequestBloc)
       ],
       child: MaterialApp(
         debugShowCheckedModeBanner: false,
@@ -62,6 +74,7 @@ class myAppState extends State<myApp> {
       ),
     );
   }
+
 }
 class MainScreen extends StatelessWidget {
     MainScreen({Key key}) :super(key : key);
