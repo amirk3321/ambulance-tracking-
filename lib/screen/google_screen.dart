@@ -10,13 +10,15 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:intl/intl.dart';
 import 'package:ksars_smart/app_constent.dart';
 import 'package:ksars_smart/bloc/auth/bloc.dart';
+import 'package:ksars_smart/bloc/location/bloc.dart';
 import 'package:ksars_smart/bloc/request/ambulance_request_bloc.dart';
 import 'package:ksars_smart/bloc/request/ambulance_request_event.dart';
 import 'package:ksars_smart/bloc/request/ambulance_request_state.dart';
 import 'package:ksars_smart/bloc/user/bloc.dart';
+import 'package:ksars_smart/model/LocationMessage.dart';
 import 'package:ksars_smart/model/paitent.dart';
 import 'package:ksars_smart/model/user.dart';
-import 'package:ksars_smart/repository/firebase_repository.dart';
+import 'package:ksars_smart/utils/shared_pref.dart';
 import 'package:location/location.dart';
 
 class GoogleScreen extends StatefulWidget {
@@ -31,20 +33,23 @@ class GoogleScreen extends StatefulWidget {
 //state class
 class GoogleScreenState extends State<GoogleScreen> {
   var scaffoldKey = GlobalKey<ScaffoldState>();
-  List<Marker> markers = <Marker>[];
+
   GoogleMapController _mapController;
 
   //customIds
   MapType _mapType;
   MarkerId _currentLocationMarkerId;
+  MarkerId _patientLocationMarkerId;
   PolylineId _customPolylineId;
   MarkerId _customMarkerId;
+  MarkerId _allAmbulanceMarkerId;
+  List<MarkerId> _ambulanceMarkerIdContiner = <MarkerId>[];
 
   //controller bool variable
   bool isNormal = false;
   bool _isShowScaffoldSnakeBar = true;
-  bool isPickAmbulance = true;
-  bool isSowAmbulance = true;
+  bool _isSowAmbulance = true;
+  bool _isLocationShare = false;
 
   //list of markers
   Map<MarkerId, Marker> setMarkers = <MarkerId, Marker>{};
@@ -56,9 +61,6 @@ class GoogleScreenState extends State<GoogleScreen> {
   GeoFirePoint point;
   Location _location = Location();
 
-  //testRequest
-  FirebaseRepository repository = FirebaseRepository();
-
   //create map
   void _onMapCreated(GoogleMapController controller) {
     setState(() {
@@ -67,18 +69,48 @@ class GoogleScreenState extends State<GoogleScreen> {
     });
   }
 
+  GeoPoint _patientCurrentLocation;
+  GeoPoint _ambulanceCurrentLocation;
+
   @override
   void initState() {
-    _addCurrentMarker();
     _location.onLocationChanged().listen((locationData) {
       setState(() {
         latLng = LatLng(locationData.latitude, locationData.longitude);
         point = geo.point(
             latitude: locationData.latitude, longitude: locationData.longitude);
+
+        SharedPref.getChannelId().then((channelId) {
+          if (_isLocationShare == true) {
+            setState(() {
+              _ambulanceCurrentLocation =
+                  GeoPoint(locationData.latitude, locationData.longitude);
+
+              if (_ambulanceCurrentLocation!=null)
+                BlocProvider.of<LocationChannelBloc>(context).dispatch(UpdateLocation(
+                  channelId: channelId,ambulanceLocation: _ambulanceCurrentLocation
+                ));
+              print(
+                  "locationTestingGeopoint ${_ambulanceCurrentLocation.latitude}");
+            });
+            print('_isLocationShare $_isLocationShare , ChannelId $channelId');
+          }
+        });
       });
-      //_addCurrentMarker(locationData.latitude, locationData.longitude);
     });
+    setState(() {
+      _removeCurrentMarker();
+      _addCurrentMarker();
+    });
+    _getPatientLocation();
     super.initState();
+  }
+
+  _getPatientLocation() async {
+    setState(() async {
+      var data = await Location().getLocation();
+      _patientCurrentLocation = GeoPoint(data.latitude, data.longitude);
+    });
   }
 
   @override
@@ -89,285 +121,341 @@ class GoogleScreenState extends State<GoogleScreen> {
           final user = state.user.firstWhere((user) => user.uid == widget.uid,
               orElse: () => User());
 
-          final ambulance = state.user
-              .where((user) => user.type == AppConst.ambulance)
-              .toList();
+          return BlocBuilder<LocationChannelBloc, LocationChannelState>(
+            builder: (context, LocationChannelState locationState) {
 
-          return Scaffold(
-            key: scaffoldKey,
-            drawer: Theme(
-              data: Theme.of(context)
-                  .copyWith(canvasColor: Colors.white.withOpacity(.6)),
-              child: Drawer(
-                child: ListView(
-                  children: <Widget>[
-                    DrawerHeader(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.center,
+              if (locationState is LocationLoaded) {
+                final locationMessage = locationState.locationMessage
+                    .firstWhere(
+                        (locationMessage) =>
+                            locationMessage.recipientId == widget.uid,
+                        orElse: () => LocationMessage());
+
+                return Scaffold(
+                  key: scaffoldKey,
+                  drawer: Theme(
+                    data: Theme.of(context)
+                        .copyWith(canvasColor: Colors.white.withOpacity(.6)),
+                    child: Drawer(
+                      child: ListView(
                         children: <Widget>[
-                          Container(
-                            height: 80.0,
-                            width: 80.0,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              border:
-                                  Border.all(color: const Color(0x33A6A6A6)),
-                              // image: new Image.asset(_image.)
+                          DrawerHeader(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: <Widget>[
+                                Container(
+                                  height: 80.0,
+                                  width: 80.0,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                        color: const Color(0x33A6A6A6)),
+                                    // image: new Image.asset(_image.)
+                                  ),
+                                  child: Image.asset('assets/default.png'),
+                                ),
+                                Text(
+                                  user.name.isNotEmpty ? user.name : 'John De',
+                                ),
+                                Text(
+                                  user.type == AppConst.patient
+                                      ? "Account Type ${AppConst.patient}"
+                                      : "Account Type ${AppConst.ambulance}",
+                                  style: TextStyle(),
+                                ),
+                              ],
                             ),
-                            child: Image.asset('assets/default.png'),
                           ),
-                          Text(
-                            user.name.isNotEmpty ? user.name : 'John De',
+                          ListTile(
+                            leading: Icon(Icons.calendar_today),
+                            title: Text('Scheduling'),
                           ),
-                          Text(
-                            user.type == AppConst.patient
-                                ? "Account Type ${AppConst.patient}"
-                                : "Account Type ${AppConst.ambulance}",
-                            style: TextStyle(),
+                          ListTile(
+                            leading: Icon(Icons.notifications),
+                            title: Text('Notification'),
+                          ),
+                          ListTile(
+                            leading: Icon(Icons.help),
+                            title: Text('Help'),
+                          ),
+                          ListTile(
+                            leading: Icon(Icons.settings),
+                            title: Text('Settings'),
+                          ),
+                          ListTile(
+                            leading: Icon(Icons.exit_to_app),
+                            title: Text('Logout'),
+                            onTap: () {
+                              BlocProvider.of<AuthBloc>(context)
+                                  .dispatch(LoggedOut());
+                            },
                           ),
                         ],
                       ),
                     ),
-                    ListTile(
-                      leading: Icon(Icons.calendar_today),
-                      title: Text('Scheduling'),
-                    ),
-                    ListTile(
-                      leading: Icon(Icons.notifications),
-                      title: Text('Notification'),
-                    ),
-                    ListTile(
-                      leading: Icon(Icons.help),
-                      title: Text('Help'),
-                    ),
-                    ListTile(
-                      leading: Icon(Icons.settings),
-                      title: Text('Settings'),
-                    ),
-                    ListTile(
-                      leading: Icon(Icons.exit_to_app),
-                      title: Text('Logout'),
-                      onTap: () {
-                        BlocProvider.of<AuthBloc>(context)
-                            .dispatch(LoggedOut());
-                      },
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            body: latLng == null
-                ? Container(
-                    child: Center(
-                      child: RefreshIndicator(
-                        child: CircularProgressIndicator(),
-                        onRefresh: () {},
-                      ),
-                    ),
-                  )
-                : Stack(
-                    children: <Widget>[
-                      GoogleMap(
-                        onMapCreated: _onMapCreated,
-                        mapType: _mapType,
-                        indoorViewEnabled: true,
-                        trafficEnabled: true,
-                        polylines: Set<Polyline>.of(polyline.values),
-                        onLongPress: (location) {
-                          _setCustomMarker(
-                              location.latitude, location.longitude);
-                          assert(_isShowScaffoldSnakeBar == true);
-                          Scaffold.of(context).showSnackBar(SnackBar(
-                            duration: Duration(minutes: 60),
-                            content: Stack(
-                              children: <Widget>[
-                                RaisedButton(
-                                  child: Text('Start travel'),
+                  ),
+                  body: latLng == null
+                      ? Container(
+                          child: Center(
+                            child: RefreshIndicator(
+                              child: CircularProgressIndicator(),
+                              onRefresh: () {},
+                            ),
+                          ),
+                        )
+                      : Stack(
+                          children: <Widget>[
+                            GoogleMap(
+                              onMapCreated: _onMapCreated,
+                              mapType: _mapType,
+                              indoorViewEnabled: true,
+                              trafficEnabled: true,
+                              polylines: Set<Polyline>.of(polyline.values),
+                              onLongPress: (location) {
+                                _setCustomMarker(
+                                    location.latitude, location.longitude);
+                                assert(_isShowScaffoldSnakeBar == true);
+                                Scaffold.of(context).showSnackBar(SnackBar(
+                                  duration: Duration(minutes: 60),
+                                  content: Stack(
+                                    children: <Widget>[
+                                      RaisedButton(
+                                        child: Text('Start travel'),
+                                        onPressed: () {
+                                          _drawRoute(location.latitude,
+                                              location.longitude);
+                                        },
+                                      ),
+                                      Positioned(
+                                        right: 5,
+                                        child: IconButton(
+                                          icon: Icon(
+                                            Icons.close,
+                                            color: Colors.red,
+                                          ),
+                                          onPressed: () {
+                                            Scaffold.of(context)
+                                                .hideCurrentSnackBar();
+                                            setState(() {
+                                              _isShowScaffoldSnakeBar = true;
+                                              _removeCustomMarker();
+                                            });
+                                          },
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ));
+                                setState(() {
+                                  _isShowScaffoldSnakeBar = false;
+                                });
+                              },
+                              onTap: (location) {},
+                              myLocationEnabled: true,
+                              myLocationButtonEnabled: false,
+                              markers: Set<Marker>.of(setMarkers.values),
+                              initialCameraPosition: CameraPosition(
+                                target: latLng,
+                                zoom: 15,
+                              ),
+                            ),
+                            Positioned(
+                              top: 25,
+                              left: 10,
+                              child: IconButton(
+                                icon: Icon(Icons.menu),
+                                onPressed: () =>
+                                    scaffoldKey.currentState.openDrawer(),
+                              ),
+                            ),
+                            Positioned(
+                              top: 39,
+                              left: 37,
+                              child: Container(
+                                height: 10,
+                                width: 10,
+                                decoration: BoxDecoration(
+                                    color: Colors.red,
+                                    borderRadius: BorderRadius.circular(50)),
+                              ),
+                            ),
+                            //map switch positioned
+                            Positioned(
+                              right: 20,
+                              bottom: 80,
+                              child: Container(
+                                decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(50),
+                                    color: Colors.white.withOpacity(.8)),
+                                child: IconButton(
+                                  icon: Icon(Icons.map),
                                   onPressed: () {
-                                    _drawRoute(
-                                        location.latitude, location.longitude);
+                                    setState(() {
+                                      if (isNormal == false) {
+                                        _mapType = MapType.satellite;
+                                        isNormal = true;
+                                      } else {
+                                        _mapType = MapType.normal;
+                                        isNormal = false;
+                                      }
+
+                                      print("my type $isNormal");
+                                    });
                                   },
                                 ),
-                                Positioned(
-                                  right: 5,
-                                  child: IconButton(
-                                    icon: Icon(
-                                      Icons.close,
-                                      color: Colors.red,
-                                    ),
-                                    onPressed: () {
-                                      Scaffold.of(context)
-                                          .hideCurrentSnackBar();
-                                      setState(() {
-                                        _isShowScaffoldSnakeBar = true;
-                                        _removeCustomMarker();
-                                      });
-                                    },
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ));
-                          setState(() {
-                            _isShowScaffoldSnakeBar = false;
-                          });
-                        },
-                        onTap: (location) {},
-                        myLocationEnabled: true,
-                        myLocationButtonEnabled: false,
-                        markers: Set<Marker>.of(setMarkers.values),
-                        initialCameraPosition: CameraPosition(
-                          target: latLng,
-                          zoom: 15,
-                        ),
-                      ),
-                      Positioned(
-                        top: 25,
-                        left: 10,
-                        child: IconButton(
-                          icon: Icon(Icons.menu),
-                          onPressed: () =>
-                              scaffoldKey.currentState.openDrawer(),
-                        ),
-                      ),
-                      Positioned(
-                        top: 39,
-                        left: 37,
-                        child: Container(
-                          height: 10,
-                          width: 10,
-                          decoration: BoxDecoration(
-                              color: Colors.red,
-                              borderRadius: BorderRadius.circular(50)),
-                        ),
-                      ),
-                      //map switch positioned
-                      Positioned(
-                        right: 20,
-                        bottom: 80,
-                        child: Container(
-                          decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(50),
-                              color: Colors.white.withOpacity(.8)),
-                          child: IconButton(
-                            icon: Icon(Icons.map),
-                            onPressed: () {
-                              setState(() {
-                                if (isNormal == false) {
-                                  _mapType = MapType.satellite;
-                                  isNormal = true;
-                                } else {
-                                  _mapType = MapType.normal;
-                                  isNormal = false;
-                                }
-
-                                print("my type $isNormal");
-                              });
-                            },
-                          ),
-                        ),
-                      ),
-                      //emergency position
-                      Positioned(
-                        top: 30,
-                        right: 20,
-                        child: user.type == AppConst.ambulance
-                            ? Row(
-                                children: <Widget>[
-                                  Container(
-                                    decoration: BoxDecoration(
-                                        borderRadius: BorderRadius.circular(50),
-                                        color: Colors.yellow.withOpacity(.6)),
-                                    child: IconButton(
-                                      tooltip: "Paitent List",
-                                      icon: Icon(Icons.notifications),
-                                      onPressed: _bottomSheet,
-                                    ),
-                                  ),
-                                  SizedBox(
-                                    width: 5,
-                                  ),
-                                  Container(
-                                    decoration: BoxDecoration(
-                                        borderRadius: BorderRadius.circular(50),
-                                        color: Colors.yellow.withOpacity(.6)),
-                                    child: IconButton(
-                                      tooltip: "NearByHostpital",
-                                      icon: Icon(Icons.local_hospital),
-                                      onPressed: () {},
-                                    ),
-                                  ),
-                                ],
-                              )
-                            : Row(
-                                children: <Widget>[
-                                  Container(
-                                    decoration: BoxDecoration(
-                                        borderRadius: BorderRadius.circular(50),
-                                        color: Colors.yellow.withOpacity(.6)),
-                                    child: IconButton(
-                                      tooltip: "Emergeny",
-                                      icon: Icon(Icons.add_alert),
-                                      onPressed: () {},
-                                    ),
-                                  ),
-                                  SizedBox(
-                                    width: 5,
-                                  ),
-                                  Container(
-                                    decoration: BoxDecoration(
-                                        borderRadius: BorderRadius.circular(50),
-                                        color: Colors.yellow.withOpacity(.6)),
-                                    child: IconButton(
-                                      tooltip: "Ambulance tracker",
-                                      icon: Icon(Icons.directions_bus),
-                                      onPressed: () {
-                                        setState(() {
-                                          if (isSowAmbulance == true) {
-                                            _setAmbulance(state);
-                                            isSowAmbulance = false;
-                                          } else {
-                                            isSowAmbulance = true;
-                                            _removeAmbulanceMarker(state);
-                                          }
-                                          print(
-                                              "isSowAmbulance $isSowAmbulance");
-                                        });
-                                      },
-                                    ),
-                                  ),
-                                  SizedBox(
-                                    width: 10,
-                                  ),
-                                  Container(
-                                    decoration: BoxDecoration(
-                                        borderRadius: BorderRadius.circular(50),
-                                        color: Colors.yellow.withOpacity(.6)),
-                                    child: IconButton(
-                                      tooltip: "NearByHospital",
-                                      icon: Icon(Icons.local_hospital),
-                                      onPressed: () {},
-                                    ),
-                                  ),
-                                ],
                               ),
-                      ),
-                    ],
+                            ),
+                            //emergency position
+                            Positioned(
+                              top: 30,
+                              right: 160,
+                              child: _isLocationShare == false
+                                  ? Text("")
+                                  : Container(
+                                decoration: BoxDecoration(
+                                    borderRadius:
+                                    BorderRadius.circular(50),
+                                    color: Colors.red),
+                                child: IconButton(
+                                  tooltip: "Stop Communction",
+                                  icon: Icon(
+                                    Icons.stop,
+                                    color: Colors.white,
+                                  ),
+                                  onPressed: () {
+                                    setState(() {
+                                      if (_isLocationShare == true)
+                                        _isLocationShare = false;
+                                    });
+                                  },
+                                ),
+                              ),
+                            ),
+                            Positioned(
+                              top: 30,
+                              right: 20,
+                              child: user.type == AppConst.ambulance
+                                  ? Row(
+                                      children: <Widget>[
+                                        Container(
+                                          decoration: BoxDecoration(
+                                              borderRadius:
+                                                  BorderRadius.circular(50),
+                                              color: Colors.yellow
+                                                  .withOpacity(.6)),
+                                          child: IconButton(
+                                            tooltip: "Paitent List",
+                                            icon: Icon(Icons.notifications),
+                                            onPressed: () {
+                                              _bottomSheet(
+                                                  user.name,
+                                                  locationMessage
+                                                      .patientPosition,
+                                                  locationMessage.patientName);
+                                            },
+                                          ),
+                                        ),
+                                        SizedBox(
+                                          width: 5,
+                                        ),
+                                        Container(
+                                          decoration: BoxDecoration(
+                                              borderRadius:
+                                                  BorderRadius.circular(50),
+                                              color: Colors.yellow
+                                                  .withOpacity(.6)),
+                                          child: IconButton(
+                                            tooltip: "NearByHostpital",
+                                            icon: Icon(Icons.local_hospital),
+                                            onPressed: () {},
+                                          ),
+                                        ),
+                                      ],
+                                    )
+                                  : Row(
+                                      children: <Widget>[
+                                        Container(
+                                          decoration: BoxDecoration(
+                                              borderRadius:
+                                                  BorderRadius.circular(50),
+                                              color: Colors.yellow
+                                                  .withOpacity(.6)),
+                                          child: IconButton(
+                                            tooltip: "Emergeny",
+                                            icon: Icon(Icons.add_alert),
+                                            onPressed: () {},
+                                          ),
+                                        ),
+                                        SizedBox(
+                                          width: 5,
+                                        ),
+                                        Container(
+                                          decoration: BoxDecoration(
+                                              borderRadius:
+                                                  BorderRadius.circular(50),
+                                              color: _isSowAmbulance
+                                                  ? Colors.yellow
+                                                      .withOpacity(.6)
+                                                  : Colors.red),
+                                          child: IconButton(
+                                            tooltip: "Ambulance tracker",
+                                            icon: Icon(
+                                              Icons.directions_bus,
+                                              color: _isSowAmbulance
+                                                  ? Colors.black
+                                                  : Colors.white,
+                                            ),
+                                            onPressed: () {
+                                              setState(() {
+                                                if (_isSowAmbulance == true) {
+                                                  _setAmbulance(state);
+                                                  _isSowAmbulance = false;
+                                                } else {
+                                                  _isSowAmbulance = true;
+                                                  _removeAmbulanceMarker();
+                                                }
+                                              });
+                                            },
+                                          ),
+                                        ),
+                                        SizedBox(
+                                          width: 10,
+                                        ),
+                                        Container(
+                                          decoration: BoxDecoration(
+                                              borderRadius:
+                                                  BorderRadius.circular(50),
+                                              color: Colors.yellow
+                                                  .withOpacity(.6)),
+                                          child: IconButton(
+                                            tooltip: "NearByHospital",
+                                            icon: Icon(Icons.local_hospital),
+                                            onPressed: () {},
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                            ),
+                          ],
+                        ),
+                  floatingActionButton: FloatingActionButton(
+                    onPressed: () {
+                      _mapController.animateCamera(
+                          CameraUpdate.newCameraPosition(CameraPosition(
+                        target: latLng,
+                        zoom: 16,
+                      )));
+                    },
+                    child: Icon(
+                      Icons.my_location,
+                      color: Colors.black,
+                    ),
+                    backgroundColor: Colors.white.withOpacity(.8),
                   ),
-            floatingActionButton: FloatingActionButton(
-              onPressed: () {
-                _mapController.animateCamera(
-                    CameraUpdate.newCameraPosition(CameraPosition(
-                  target: latLng,
-                  zoom: 16,
-                )));
-              },
-              child: Icon(
-                Icons.my_location,
-                color: Colors.black,
-              ),
-              backgroundColor: Colors.white.withOpacity(.8),
-            ),
+                );
+              }
+              return Container();
+            },
           );
         }
         return Container();
@@ -376,14 +464,20 @@ class GoogleScreenState extends State<GoogleScreen> {
   }
 
   //not yet implemented
-  _removeAmbulanceMarker(UsersLoaded state) async {
-    var users =
-        state.user.where((user) => user.type == AppConst.ambulance).toList();
+  _removeAmbulanceMarker() async {
+    setState(() {
+      _ambulanceMarkerIdContiner.forEach((markerIds) {
+        if (setMarkers.containsKey(markerIds)) {
+          setMarkers.remove(markerIds);
+          print(markerIds);
+        }
+      });
+    });
   }
 
   _setAmbulance(UsersLoaded state) async {
-    var curentUserInfo =
-        state.user.firstWhere((user) => user.uid == widget.uid);
+    var curentUserInfo = state.user
+        .firstWhere((user) => user.uid == widget.uid, orElse: () => User());
 
     var users =
         state.user.where((user) => user.type == AppConst.ambulance).toList();
@@ -393,9 +487,11 @@ class GoogleScreenState extends State<GoogleScreen> {
 
     users.forEach((user) {
       if (!setMarkers.containsKey(user.uid)) {
-        MarkerId markerId = MarkerId(user.uid);
+        _allAmbulanceMarkerId =
+            MarkerId("allAmbulanceMarkerId${Random().nextInt(50)}");
+        _ambulanceMarkerIdContiner.add(_allAmbulanceMarkerId);
         Marker marker = Marker(
-          markerId: markerId,
+          markerId: _allAmbulanceMarkerId,
           onTap: () {
             Scaffold.of(context).showSnackBar(SnackBar(
               duration: Duration(minutes: 3),
@@ -454,6 +550,8 @@ class GoogleScreenState extends State<GoogleScreen> {
                                                   profile:
                                                       curentUserInfo.profile,
                                                   time: Timestamp.now(),
+                                                  patientPosition:
+                                                      _patientCurrentLocation,
                                                   request_type: 'sent')));
                                     },
                                     child: Text("Pick"),
@@ -477,7 +575,7 @@ class GoogleScreenState extends State<GoogleScreen> {
           position: LatLng(user.point.latitude, user.point.longitude),
         );
         setState(() {
-          setMarkers[markerId] = marker;
+          setMarkers[_allAmbulanceMarkerId] = marker;
         });
         print(user.name);
       } else {
@@ -512,6 +610,14 @@ class GoogleScreenState extends State<GoogleScreen> {
     });
   }
 
+  _removeCurrentMarker() {
+    setState(() {
+      if (setMarkers.containsKey(_currentLocationMarkerId)) {
+        setMarkers.remove(_currentLocationMarkerId);
+      }
+    });
+  }
+
   _removeCustomMarker() {
     setState(() {
       if (setMarkers.containsKey(_customMarkerId)) {
@@ -519,7 +625,7 @@ class GoogleScreenState extends State<GoogleScreen> {
       }
 
       if (polyline.containsValue(_customPolylineId)) {
-        polyline.clear();
+        polyline.removeWhere((id,polyline) => id == _customPolylineId);
       }
     });
   }
@@ -529,7 +635,7 @@ class GoogleScreenState extends State<GoogleScreen> {
     final List<LatLng> routes = List();
     routes.add(LatLng(lat, lang));
     routes.add(LatLng(current.latitude, current.longitude));
-    _customPolylineId = PolylineId('currentRoutes1');
+    _customPolylineId = PolylineId('currentRoutes1${Random().nextInt(50)}');
     var line = Polyline(
       polylineId: _customPolylineId,
       consumeTapEvents: true,
@@ -554,7 +660,8 @@ class GoogleScreenState extends State<GoogleScreen> {
         .asUint8List();
   }
 
-  void _bottomSheet() {
+  void _bottomSheet(
+      driverName, GeoPoint currentPatientLocation, currentPatientName) {
     showModalBottomSheet(
         context: context,
         builder: (builder) =>
@@ -565,75 +672,165 @@ class GoogleScreenState extends State<GoogleScreen> {
                 if (state is AmbulanceRequestLoaded) {
                   return Container(
                       color: Colors.grey,
-                      child: ListView.builder(
-                          itemCount: state.patient.length,
-                          itemBuilder: (BuildContext context, int index) {
-                            return singlePatientLayout(
-                              currentUID: state.patient[index].uid,
-                                profile: state.patient[index].profile == ''
-                                    ? 'assets/default.png'
-                                    : state.patient[index].profile,
-                                text: state.patient[index].name == ''
-                                    ? ''
-                                    : state.patient[index].name,
-                                time: DateFormat('hh:mm a').format(
-                                    state.patient[index].time.toDate()));
-                          }));
+                      child: Stack(
+                        children: <Widget>[
+                          ListView.builder(
+                              itemCount: state.patient.length,
+                              itemBuilder: (BuildContext context, int index) {
+                                GeoPoint point = GeoPoint(
+                                    state.patient[index].patientPosition
+                                        .latitude,
+                                    state.patient[index].patientPosition
+                                        .longitude);
+                                return singlePatientLayout(
+                                    currentPatientName: currentPatientName,
+                                    currentPatientLocation:
+                                        currentPatientLocation,
+                                    patientLocation: point,
+                                    driverName: driverName,
+                                    otherUID: state.patient[index].uid,
+                                    profile: state.patient[index].profile == ''
+                                        ? 'assets/default.png'
+                                        : state.patient[index].profile,
+                                    name: state.patient[index].name == ''
+                                        ? ''
+                                        : state.patient[index].name,
+                                    time: DateFormat('hh:mm a').format(
+                                        state.patient[index].time.toDate()));
+                              }),
+                          Positioned(
+                            bottom: 10,
+                            right: 10,
+                            child: Container(
+                              decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(50),
+                                  color: Colors.white),
+                              child: IconButton(
+                                icon: Icon(Icons.refresh),
+                                onPressed: () {
+                                  SharedPref.getCurrentUID().then((value) {
+                                    BlocProvider.of<AmbulanceRequestBloc>(
+                                            context)
+                                        .dispatch(AmbulanceRequestLoad(value));
+                                  });
+                                },
+                              ),
+                            ),
+                          )
+                        ],
+                      ));
                 }
                 return Container(
-                  child: ListView.builder(itemBuilder: (builder, index) {
-                    return ListTile(
-                      title: Text("jo"),
-                      subtitle: Text("test"),
-                    );
-                  }),
+                  child: Text("BottomSheet not Generated"),
                 );
               },
             ));
   }
 
-  singlePatientLayout({text, time, profile,currentUID}) => Container(
-    color: Colors.white54,
-    padding: EdgeInsets.all(8),
-    margin: EdgeInsets.all(3),
-    child: Row(
-      children: <Widget>[
-        Container(
-          height: 50,
-          width: 50,
-          decoration:
-              BoxDecoration(borderRadius: BorderRadius.circular(50)),
-          child: Image.asset(profile),
-        ),
-        SizedBox(width: 5,),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+  singlePatientLayout(
+          {name,
+          time,
+          profile,
+          otherUID,
+          driverName,
+          GeoPoint patientLocation,
+          GeoPoint currentPatientLocation,
+          currentPatientName}) =>
+      Container(
+        color: Colors.white54,
+        padding: EdgeInsets.all(8),
+        margin: EdgeInsets.all(3),
+        child: Row(
           children: <Widget>[
-            Text(
-              text,
-              style: TextStyle(fontSize: 18),
+            Container(
+              height: 50,
+              width: 50,
+              decoration:
+                  BoxDecoration(borderRadius: BorderRadius.circular(50)),
+              child: Image.asset(profile),
             ),
-            Text(
-              time,
-              style: TextStyle(fontSize: 14),
+            SizedBox(
+              width: 5,
+            ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Text(
+                  name,
+                  style: TextStyle(fontSize: 18),
+                ),
+                Text(
+                  time,
+                  style: TextStyle(fontSize: 14),
+                )
+              ],
+            ),
+            Spacer(),
+            FlatButton(
+              onPressed: () {
+                print('cancel');
+              },
+              child: Text('cancel'),
+            ),
+            FlatButton(
+              onPressed: () {
+                BlocProvider.of<LocationChannelBloc>(context).dispatch(
+                    ConfirmLocationChannelCreate(
+                        otherUID: otherUID,
+                        patientName: name,
+                        currentUID: widget.uid,
+                        driverName: driverName,
+                        ambulancePosition: _ambulanceCurrentLocation == null
+                            ? null
+                            : _ambulanceCurrentLocation,
+                        patientPosition: GeoPoint(
+                          patientLocation.latitude,
+                          patientLocation.longitude,
+                        )));
+                setState(() {
+                  if (_isLocationShare == false) {
+                    _isLocationShare = true;
+                    print("isLocationShareTesting $_isLocationShare");
+                  } else {
+                    _isLocationShare = false;
+                    print("isLocationShareTesting $_isLocationShare");
+                  }
+                });
+                _removePatientMarkerId();
+                _paitentLocationMarker(
+                    currentPatientLocation, currentPatientName);
+              },
+              child: Text('Confirm'),
             )
           ],
         ),
-        Spacer(),
-        FlatButton(onPressed: (){print('cancel');},child: Text('cancel'),),
-        FlatButton(onPressed: (){print('confirm uid $currentUID');},child: Text('Confirm'),)
-      ],
-    ),
-  );
+      );
+
+  _paitentLocationMarker(GeoPoint point, name) {
+    print("checkPointLocation ${point.latitude} ,${point.longitude}");
+    if (point != null) {
+      _patientLocationMarkerId = MarkerId('PatientMarkerId');
+      var patientMarkerId = Marker(
+          consumeTapEvents: true,
+          onTap: () {
+            print("patientName $name");
+          },
+          markerId: _patientLocationMarkerId,
+          position: LatLng(point.latitude, point.longitude),
+          infoWindow: InfoWindow(
+              title: "${point.latitude},${point.longitude}",
+              snippet: 'Patient name $name *Patient Location'));
+      setState(() {
+        setMarkers[_patientLocationMarkerId] = patientMarkerId;
+      });
+    }
+  }
+
+  _removePatientMarkerId() {
+    setState(() {
+      if (setMarkers.containsKey(_patientLocationMarkerId)) {
+        setMarkers.remove(_patientLocationMarkerId);
+      }
+    });
+  }
 }
-
-/*
-
-                return ListTile(
-                  leading: Image.asset(state.patient[index].profile == "" ? "assets/default.png" : state.patient[index].profile),
-                  title: Text(state.patient[index].name == "" ?"" : state.patient[index].name),
-                  subtitle: Text(DateFormat('hh:mm a').format(state.patient[index].time.toDate())),
-                  trailing: RaisedButton(onPressed: (){} ,child: Text("Confirm"),),
-                );
-
-*/

@@ -7,13 +7,17 @@ class Patient {
   final String profile;
   final Timestamp time;
   final String request_type;
+  final GeoPoint patientPosition;
+  final GeoPoint hospitalPosition;
 
   Patient(
       {this.name = '',
       this.uid = '',
       this.profile = '',
       this.time,
-      this.request_type = ''});
+      this.request_type = '',
+      this.patientPosition,
+      this.hospitalPosition});
 
   Patient copyWith({
     String name,
@@ -21,6 +25,8 @@ class Patient {
     String profile,
     Timestamp time,
     String request_type,
+    GeoPoint patientPosition,
+    GeoPoint hospitalPosition,
   }) {
     return Patient(
       name: name ?? this.name,
@@ -28,6 +34,8 @@ class Patient {
       profile: profile ?? this.profile,
       time: time ?? this.time,
       request_type: request_type ?? this.request_type,
+      patientPosition: patientPosition ?? this.patientPosition,
+      hospitalPosition: hospitalPosition ?? this.hospitalPosition,
     );
   }
 
@@ -38,7 +46,9 @@ class Patient {
       uid.hashCode ^
       profile.hashCode ^
       time.hashCode ^
-      request_type.hashCode;
+      request_type.hashCode ^
+      patientPosition.hashCode ^
+      hospitalPosition.hashCode;
 
   @override
   bool operator ==(other) =>
@@ -49,21 +59,25 @@ class Patient {
           uid == other.uid &&
           profile == other.profile &&
           time == other.time &&
-          request_type == other.request_type;
+          request_type == other.request_type &&
+          patientPosition == other.patientPosition &&
+          hospitalPosition == other.hospitalPosition;
 
+  PatientEntity toEntity() => PatientEntity(name, uid, profile, time,
+      request_type, patientPosition, hospitalPosition);
 
-   PatientEntity toEntity() =>
-      PatientEntity(name,uid,profile,time,request_type);
-
-  static Patient fromEntity(PatientEntity entity){
+  static Patient fromEntity(PatientEntity entity) {
     return Patient(
       name: entity.name,
       uid: entity.uid,
       profile: entity.profile,
       time: entity.time,
       request_type: entity.request_type,
+      patientPosition: entity.patientPosition,
+      hospitalPosition: entity.hospitalPosition,
     );
   }
+
   @override
   String toString() => '''
     name $name,
@@ -71,5 +85,7 @@ class Patient {
     profile $profile,
     timestap $time,
     request_type $request_type
+    patientPosition $patientPosition
+    hospitalPosition $hospitalPosition
   ''';
 }

@@ -22,6 +22,7 @@ class _LoginScreenState extends State<LoginScreen> {
       _emailController.text.isNotEmpty && _passwordController.text.isNotEmpty;
 
   LoginBloc _loginBloc;
+  bool _obscureText = true;
 
   @override
   void initState() {
@@ -119,10 +120,16 @@ class _LoginScreenState extends State<LoginScreen> {
                 color: Colors.grey[300],
               ),
               child: TextFormField(
-                obscureText: true,
+                obscureText: _obscureText,
                 controller: _passwordController,
                 keyboardType: TextInputType.visiblePassword,
                 decoration: InputDecoration(
+                  suffixIcon: IconButton(
+                    icon: Icon(Icons.remove_red_eye),
+                    color: _obscureText ? Colors.grey : Colors.red,
+                    onPressed: () => setState(
+                            () => _obscureText = _obscureText ? false : true),
+                  ),
                     prefixIcon: Icon(Icons.lock),
                     border: InputBorder.none,
                     hintText: 'enter your password'),

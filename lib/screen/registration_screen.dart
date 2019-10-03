@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:geoflutterfire/geoflutterfire.dart';
 import 'package:ksars_smart/app_constent.dart';
 import 'package:ksars_smart/bloc/auth/bloc.dart';
 import 'package:ksars_smart/bloc/registor/bloc.dart';
@@ -32,9 +31,7 @@ class RegistrationScreenState extends State<RegistrationScreen> {
       _phoneController.text.isNotEmpty &&
       _passwordController.text.isNotEmpty;
 
-  Geoflutterfire geo=Geoflutterfire();
 
-  GeoFirePoint point;
   GeoPoint _point;
   Location _location=Location();
   RegistorBloc _registorBloc;

@@ -1,6 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:geoflutterfire/geoflutterfire.dart';
+import 'package:ksars_smart/model/LocationMessage.dart';
+import 'package:ksars_smart/model/LocationMessageEntity.dart';
 import 'package:ksars_smart/model/communication_channel.dart';
 import 'package:ksars_smart/model/paitent.dart';
 import 'package:ksars_smart/model/patientEntity.dart';
@@ -209,4 +211,46 @@ class FirebaseRepository extends RepoBase {
           .toList();
     });
   }
+
+  Future<void> shareLocationMessage(
+      {LocationMessage locationMessage, String channelId}) async {
+    _locationChannels
+        .document(channelId)
+        .collection('locationShare')
+        .document(channelId)
+        .setData(locationMessage.toEntity().toDocument())
+        .catchError((e) => print(e.toString()));
+  }
+
+  Stream<List<LocationMessage>> locationMessages({String channelId}) {
+    return _locationChannels
+        .document(channelId)
+        .collection("locationShare")
+        .snapshots()
+        .map((snapshot) {
+      return snapshot.documents
+          .map((doc) => LocationMessage.formEntity(
+              LocationMessageEntity.fromDocumentSnapshot(doc)))
+          .toList();
+    });
+  }
+
+  Future<void> updateLocation({GeoPoint ambulanceLocation,String channelId})async{
+    Map<String,Object> locationUpdate=Map();
+
+    if (ambulanceLocation!=null) locationUpdate['ambulancePosition']=ambulanceLocation;
+
+    _locationChannels.document(channelId).collection('locationShare')
+    .document(channelId).updateData(locationUpdate);
+  }
+
+  Future<void> updateLocationMessage(
+      {GeoPoint ambulanceLocation,String channelId}) async {
+    Map<String, Object> updateLocation = Map();
+
+    if (ambulanceLocation != null) updateLocation['ambulancePosition'] = ambulanceLocation;
+    _locationChannels.document(channelId).collection('locationShare').document(channelId)
+    .updateData(updateLocation);
+  }
+
 }

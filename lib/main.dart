@@ -1,6 +1,8 @@
 import 'package:bloc/bloc.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:ksars_smart/bloc/location/location_channel_bloc.dart';
+import 'package:ksars_smart/bloc/location/location_channel_event.dart';
 import 'package:ksars_smart/bloc/request/ambulance_request_bloc.dart';
 import 'package:ksars_smart/bloc/request/ambulance_request_event.dart';
 import 'package:ksars_smart/repository/firebase_repository.dart';
@@ -46,7 +48,8 @@ class myAppState extends State<myApp> {
           builder: (_) =>
               UserBloc(repository: FirebaseRepository())..dispatch(LoadUser()),
         ),
-        BlocProvider<AmbulanceRequestBloc>(builder: (_) => _ambulanceRequestBloc)
+        BlocProvider<AmbulanceRequestBloc>(builder: (_) => _ambulanceRequestBloc),
+        BlocProvider<LocationChannelBloc>(builder: (_) => LocationChannelBloc(repository: FirebaseRepository())..dispatch(LoadLocationMessage()),)
       ],
       child: MaterialApp(
         debugShowCheckedModeBanner: false,

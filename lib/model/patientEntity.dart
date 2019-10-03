@@ -8,9 +8,11 @@ class PatientEntity extends Equatable{
   final String profile;
   final Timestamp time;
   final String request_type;
+  final GeoPoint patientPosition;
+  final GeoPoint hospitalPosition;
 
 
-  PatientEntity(this.name,this.uid,this.profile,this.time,this.request_type);
+  PatientEntity(this.name,this.uid,this.profile,this.time,this.request_type,this.patientPosition,this.hospitalPosition);
 
   static PatientEntity fromJson(Map<String,Object> json) =>
       PatientEntity(
@@ -19,6 +21,8 @@ class PatientEntity extends Equatable{
         json['profile'] as String,
         json['time'] as Timestamp,
         json['request_type'] as String,
+        json['patientPosition'] as GeoPoint,
+        json['hospitalPosition'] as GeoPoint,
       );
 
   Map<String,Object> toJson() => {
@@ -27,6 +31,8 @@ class PatientEntity extends Equatable{
   'profile' :profile,
   'time' : time,
   'request_type' :request_type,
+  'patientPosition' :patientPosition,
+  'hospitalPosition' :hospitalPosition,
   };
 
 
@@ -37,6 +43,8 @@ class PatientEntity extends Equatable{
         snapshot.data['profile'],
         snapshot.data['time'],
         snapshot.data['request_type'],
+        snapshot.data['patientPosition'],
+        snapshot.data['hospitalPosition'],
       );
 
   Map<String,Object> toDocument() => {
@@ -45,6 +53,8 @@ class PatientEntity extends Equatable{
     'profile' :profile,
     'time' : time,
     'request_type' :request_type,
+    'patientPosition' :patientPosition,
+    'hospitalPosition' :hospitalPosition,
   };
 
   @override
@@ -54,6 +64,8 @@ class PatientEntity extends Equatable{
     profile $profile,
     timestap $time,
     request_type $request_type
+    patientPosition $patientPosition,
+    hospitalPosition $hospitalPosition,
   ''';
 
 
