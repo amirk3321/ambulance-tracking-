@@ -11,6 +11,8 @@ class LocationChannelBloc
   FirebaseRepository _repository;
   StreamSubscription _locationMessageStreamSubsription;
 
+  String _channelId;
+
   LocationChannelBloc({FirebaseRepository repository})
       : assert(repository != null),
         _repository = repository;
@@ -36,7 +38,7 @@ class LocationChannelBloc
 
   Stream<LocationChannelState> _mapConfirmLocationChannelCreateToState(
       ConfirmLocationChannelCreate event) async* {
-    _repository.getCreateLocationChannel(
+    await _repository.getCreateLocationChannel(
         otherUID: event.otherUID,
         onComplete: (channelId) async {
           print('ChannelId $channelId');
@@ -44,18 +46,28 @@ class LocationChannelBloc
           await _repository.shareLocationMessage(
               locationMessage: LocationMessage(
                   senderId: event.otherUID,
+                  isFlag: event.isFlag,
+                  channelId: channelId,
+                  locationChannelUserIds: [event.currentUID,event.otherUID],
                   recipientId: event.currentUID,
                   driverName: event.driverName,
                   patientName: event.patientName,
                   patientPosition: event.patientPosition,
                   ambulancePosition: event.ambulancePosition),
               channelId: channelId);
+          setChannelId(channelId: channelId);
           _locationMessageStreamSubsription?.cancel();
           _locationMessageStreamSubsription = _repository
-              .locationMessages(channelId: channelId)
+              .locationMessages()
               .listen((locationMessages) {
             dispatch(LocationUpdated(locationMessages: locationMessages));
           });
+//          _locationMessageStreamSubsription?.cancel();
+//          _locationMessageStreamSubsription = _repository
+//              .locationMessages(channelId: channelId)
+//              .listen((locationMessages) {
+//            dispatch(LocationUpdated(locationMessages: locationMessages));
+//          });
         });
   }
 
@@ -65,16 +77,40 @@ class LocationChannelBloc
   }
 
   Stream<LocationChannelState> _mapOfLoadLocationMessageToState() async* {
+
+    _locationMessageStreamSubsription?.cancel();
     _locationMessageStreamSubsription = _repository
-        .locationMessages(channelId: "noChannel")
+        .locationMessages()
         .listen((locationMessages) {
       dispatch(LocationUpdated(locationMessages: locationMessages));
     });
+
+//    _repository.getChannelIds().listen((ids){
+//      ids.forEach((channelIds){
+//        _locationMessageStreamSubsription = _repository
+//            .locationMessages(channelId: channelIds)
+//            .listen((locationMessages) {
+//          dispatch(LocationUpdated(locationMessages: locationMessages,channelIds: ids));
+//        });
+//      });
+//    });
+
+
   }
 
  Stream<LocationChannelState> _mapOfUpdateLocation(UpdateLocation event) async*{
-    _repository.updateLocation(ambulanceLocation: event.ambulanceLocation,channelId: event.channelId);
+   await _repository.updateLocation(ambulanceLocation: event.ambulanceLocation,channelId: event.channelId,isFlag: event.isFlag);
  }
 
-
+  @override
+  void dispose() {
+    _locationMessageStreamSubsription?.cancel();
+    super.dispose();
+  }
+  void setChannelId({String channelId}){
+    this._channelId=channelId;
+  }
+  String getChannelId(){
+    return _channelId;
+  }
 }

@@ -1,9 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:geoflutterfire/geoflutterfire.dart';
 import 'package:ksars_smart/model/LocationMessage.dart';
 import 'package:ksars_smart/model/LocationMessageEntity.dart';
-import 'package:ksars_smart/model/communication_channel.dart';
 import 'package:ksars_smart/model/paitent.dart';
 import 'package:ksars_smart/model/patientEntity.dart';
 import 'package:ksars_smart/model/user.dart';
@@ -25,26 +23,25 @@ class FirebaseRepository extends RepoBase {
   }
 
   @override
-  Future<void> getInitializedCurrentUser(
-      {String email,
-      String name,
-      String phone,
-      String type,
-      String profile,
-      GeoPoint point}) async {
+  Future<void> getInitializedCurrentUser({String email,
+    String name,
+    String phone,
+    String type,
+    String profile,
+    GeoPoint point}) async {
     _userCollection
         .document((await _firebaseAuth.currentUser()).uid)
         .get()
         .then((user) async {
       if (!user.exists) {
         var newUser = User(
-                email: email,
-                profile: profile,
-                name: name,
-                type: type,
-                phone: phone,
-                point: point,
-                uid: (await _firebaseAuth.currentUser()).uid)
+            email: email,
+            profile: profile,
+            name: name,
+            type: type,
+            phone: phone,
+            point: point,
+            uid: (await _firebaseAuth.currentUser()).uid)
             .toEntity()
             .toDocument();
 
@@ -55,7 +52,7 @@ class FirebaseRepository extends RepoBase {
         print('Already Exists');
       }
     }).catchError((exception) =>
-            print("getInitializedCurrentUser ${exception.toString()}"));
+        print("getInitializedCurrentUser ${exception.toString()}"));
   }
 
   @override
@@ -77,12 +74,11 @@ class FirebaseRepository extends RepoBase {
   }
 
   @override
-  Future<void> onUpdateUserInfo(
-      {String name,
-      String profile,
-      String phoneNumber,
-      String uid,
-      GeoPoint point}) async {
+  Future<void> onUpdateUserInfo({String name,
+    String profile,
+    String phoneNumber,
+    String uid,
+    GeoPoint point}) async {
     Map<String, Object> updateUser = Map();
 
     if (name.isNotEmpty) updateUser['name'] = name;
@@ -97,7 +93,7 @@ class FirebaseRepository extends RepoBase {
     return _userCollection.snapshots().map((snapshot) {
       return snapshot.documents
           .map((docSnapshot) =>
-              User.fromEntity(UserEntity.fromSnapshot(docSnapshot)))
+          User.fromEntity(UserEntity.fromSnapshot(docSnapshot)))
           .toList();
     });
   }
@@ -115,12 +111,12 @@ class FirebaseRepository extends RepoBase {
         onComplete(snapshot.data['channelId']);
         return;
       }
-      String currentUID = (await _firebaseAuth.currentUser()).uid;
+//      String currentUID = (await _firebaseAuth.currentUser()).uid;
 
       var newLocationChannel = _locationChannels.document();
-
-      newLocationChannel.setData(
-          CommunicationChannel(userIds: [currentUID, otherUID]).toDocument());
+//
+//      newLocationChannel.setData(
+//          CommunicationChannel(userIds: [currentUID, otherUID]).toDocument());
 
       var channel = {'channelId': newLocationChannel.documentID};
 
@@ -139,7 +135,7 @@ class FirebaseRepository extends RepoBase {
 
       onComplete(newLocationChannel.documentID);
     }).catchError((Exception e) =>
-            print("getCreateLocationChannel :${e.toString()}"));
+        print("getCreateLocationChannel :${e.toString()}"));
   }
 
   Future<void> getAmbulancePickRequest(
@@ -195,7 +191,7 @@ class FirebaseRepository extends RepoBase {
         return;
       }
     }).catchError((Exception e) =>
-            print("getDeleteAmbulancePickRequest ${e.toString()}"));
+        print("getDeleteAmbulancePickRequest ${e.toString()}"));
   }
 
   Stream<List<Patient>> patientList(String currentUID) {
@@ -207,7 +203,7 @@ class FirebaseRepository extends RepoBase {
         .map((snapshot) {
       return snapshot.documents
           .map((snapshot) =>
-              Patient.fromEntity(PatientEntity.formSnapshot(snapshot)))
+          Patient.fromEntity(PatientEntity.formSnapshot(snapshot)))
           .toList();
     });
   }
@@ -216,41 +212,46 @@ class FirebaseRepository extends RepoBase {
       {LocationMessage locationMessage, String channelId}) async {
     _locationChannels
         .document(channelId)
-        .collection('locationShare')
-        .document(channelId)
         .setData(locationMessage.toEntity().toDocument())
         .catchError((e) => print(e.toString()));
   }
 
-  Stream<List<LocationMessage>> locationMessages({String channelId}) {
+  Stream<List<LocationMessage>> locationMessages() {
     return _locationChannels
-        .document(channelId)
-        .collection("locationShare")
-        .snapshots()
-        .map((snapshot) {
-      return snapshot.documents
-          .map((doc) => LocationMessage.formEntity(
-              LocationMessageEntity.fromDocumentSnapshot(doc)))
-          .toList();
+        .snapshots().map((snapshot) {
+      return snapshot.documents.map((doc) =>
+          LocationMessage.formEntity(
+              LocationMessageEntity.fromDocumentSnapshot(doc))).toList();
     });
   }
 
-  Future<void> updateLocation({GeoPoint ambulanceLocation,String channelId})async{
-    Map<String,Object> locationUpdate=Map();
+  Future<void> updateLocation(
+      {GeoPoint ambulanceLocation, String channelId,bool isFlag}) async {
+    Map<String, Object> locationUpdate = Map();
 
-    if (ambulanceLocation!=null) locationUpdate['ambulancePosition']=ambulanceLocation;
+    if (ambulanceLocation != null)
+      locationUpdate['ambulancePosition'] = ambulanceLocation;
 
-    _locationChannels.document(channelId).collection('locationShare')
-    .document(channelId).updateData(locationUpdate);
+        locationUpdate['isFlag']=isFlag;
+
+
+    _locationChannels.document(channelId).updateData(locationUpdate);
   }
 
   Future<void> updateLocationMessage(
-      {GeoPoint ambulanceLocation,String channelId}) async {
+      {GeoPoint ambulanceLocation, String channelId}) async {
     Map<String, Object> updateLocation = Map();
 
-    if (ambulanceLocation != null) updateLocation['ambulancePosition'] = ambulanceLocation;
-    _locationChannels.document(channelId).collection('locationShare').document(channelId)
-    .updateData(updateLocation);
+    if (ambulanceLocation != null)
+      updateLocation['ambulancePosition'] = ambulanceLocation;
+    _locationChannels.document(channelId).collection('locationShare').document(
+        channelId)
+        .updateData(updateLocation);
   }
 
+  Stream<List<String>> getChannelIds() {
+    return _locationChannels.snapshots().map((snapshot) {
+      return snapshot.documents.map((doc) => doc.documentID).toList();
+    });
+  }
 }

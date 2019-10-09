@@ -14,8 +14,9 @@ class  LocationLoading extends LocationChannelState {
 
 class LocationLoaded extends LocationChannelState {
   final List<LocationMessage> locationMessage;
+  final List<String> channelIds;
 
-  LocationLoaded({this.locationMessage=const []}) : super([locationMessage]);
+  LocationLoaded({this.locationMessage=const [],this.channelIds}) : super([locationMessage,channelIds]);
 
   @override
   String toString() => 'LocationLoaded { locationMessage : $locationMessage }';
