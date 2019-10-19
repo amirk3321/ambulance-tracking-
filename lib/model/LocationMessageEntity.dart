@@ -10,10 +10,11 @@ class LocationMessageEntity extends Equatable {
   final String patientName;
   final GeoPoint ambulancePosition;
   final GeoPoint patientPosition;
+  final GeoPoint hospitalPosition;
   final List<String> locationChannelUserIds;
 
   LocationMessageEntity(this.senderId,this.isFlag,this.channelId, this.recipientId, this.ambulancePosition,
-      this.patientPosition, this.patientName, this.driverName,{this.locationChannelUserIds});
+      this.patientPosition, this.hospitalPosition,this.patientName, this.driverName,{this.locationChannelUserIds});
 
   Map<String, Object> toJson() => {
         'senderId': senderId,
@@ -22,6 +23,7 @@ class LocationMessageEntity extends Equatable {
         'recipientId': recipientId,
         'ambulancePosition': ambulancePosition,
         'patientPosition': patientPosition,
+        'hospitalPosition': hospitalPosition,
         'patientName': patientName,
         'driverName': driverName,
         'locationChannelUserIds': locationChannelUserIds,
@@ -35,6 +37,7 @@ class LocationMessageEntity extends Equatable {
         json['recipientId'] as String,
         json['ambulancePosition'] as GeoPoint,
         json['patientPosition'] as GeoPoint,
+        json['hospitalPosition'] as GeoPoint,
         json['patientName'] as String,
         json['driverName'] as String,
         locationChannelUserIds: json['driverName'] as List<String>,
@@ -49,6 +52,7 @@ class LocationMessageEntity extends Equatable {
         snapshot.data['recipientId'],
         snapshot.data['ambulancePosition'],
         snapshot.data['patientPosition'],
+        snapshot.data['hospitalPosition'],
         snapshot.data['patientName'],
         snapshot.data['driverName'],
       );
@@ -60,6 +64,7 @@ class LocationMessageEntity extends Equatable {
         'recipientId': recipientId,
         'ambulancePosition': ambulancePosition,
         'patientPosition': patientPosition,
+        'hospitalPosition': hospitalPosition,
         'patientName': patientName,
         'driverName': driverName,
         'locationChannelUserIds': locationChannelUserIds,

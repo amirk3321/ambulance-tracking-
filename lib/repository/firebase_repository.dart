@@ -23,25 +23,26 @@ class FirebaseRepository extends RepoBase {
   }
 
   @override
-  Future<void> getInitializedCurrentUser({String email,
-    String name,
-    String phone,
-    String type,
-    String profile,
-    GeoPoint point}) async {
+  Future<void> getInitializedCurrentUser(
+      {String email,
+      String name,
+      String phone,
+      String type,
+      String profile,
+      GeoPoint point}) async {
     _userCollection
         .document((await _firebaseAuth.currentUser()).uid)
         .get()
         .then((user) async {
       if (!user.exists) {
         var newUser = User(
-            email: email,
-            profile: profile,
-            name: name,
-            type: type,
-            phone: phone,
-            point: point,
-            uid: (await _firebaseAuth.currentUser()).uid)
+                email: email,
+                profile: profile,
+                name: name,
+                type: type,
+                phone: phone,
+                point: point,
+                uid: (await _firebaseAuth.currentUser()).uid)
             .toEntity()
             .toDocument();
 
@@ -52,7 +53,7 @@ class FirebaseRepository extends RepoBase {
         print('Already Exists');
       }
     }).catchError((exception) =>
-        print("getInitializedCurrentUser ${exception.toString()}"));
+            print("getInitializedCurrentUser ${exception.toString()}"));
   }
 
   @override
@@ -71,20 +72,25 @@ class FirebaseRepository extends RepoBase {
   Future<void> signUpWithEmailPassword({String email, String password}) async {
     await _firebaseAuth.createUserWithEmailAndPassword(
         email: email, password: password);
+    await SharedPref.setCurrentUID((await _firebaseAuth.currentUser()).uid);
   }
 
   @override
-  Future<void> onUpdateUserInfo({String name,
-    String profile,
-    String phoneNumber,
-    String uid,
-    GeoPoint point}) async {
+  Future<void> onUpdateUserInfo(
+      {String name,
+      String profile,
+      String phoneNumber,
+      String uid,
+        bool isBusy,
+      GeoPoint point}) async {
     Map<String, Object> updateUser = Map();
 
     if (name.isNotEmpty) updateUser['name'] = name;
     if (profile != null) updateUser['profile'] = profile;
-    if (phoneNumber != null) updateUser['profile'] = profile;
+    if (phoneNumber != null) updateUser['phone'] = phoneNumber;
     if (point != null) updateUser['position'] = point;
+    if (isBusy == false) updateUser['isBusy']=true;
+    else updateUser['isBusy']=false;
     _userCollection.document(uid).updateData(updateUser);
   }
 
@@ -93,7 +99,7 @@ class FirebaseRepository extends RepoBase {
     return _userCollection.snapshots().map((snapshot) {
       return snapshot.documents
           .map((docSnapshot) =>
-          User.fromEntity(UserEntity.fromSnapshot(docSnapshot)))
+              User.fromEntity(UserEntity.fromSnapshot(docSnapshot)))
           .toList();
     });
   }
@@ -111,12 +117,8 @@ class FirebaseRepository extends RepoBase {
         onComplete(snapshot.data['channelId']);
         return;
       }
-//      String currentUID = (await _firebaseAuth.currentUser()).uid;
 
       var newLocationChannel = _locationChannels.document();
-//
-//      newLocationChannel.setData(
-//          CommunicationChannel(userIds: [currentUID, otherUID]).toDocument());
 
       var channel = {'channelId': newLocationChannel.documentID};
 
@@ -134,8 +136,38 @@ class FirebaseRepository extends RepoBase {
           .setData(channel);
 
       onComplete(newLocationChannel.documentID);
-    }).catchError((Exception e) =>
-        print("getCreateLocationChannel :${e.toString()}"));
+    })
+          ..catchError((Exception e) =>
+              print("getCreateLocationChannel :${e.toString()}"));
+  }
+
+  Future<void> getDeleteLocationChannel({
+    String otherUID,
+  }) async {
+    _userCollection
+        .document((await _firebaseAuth.currentUser()).uid)
+        .collection('engagedLocationChannels')
+        .document(otherUID)
+        .get()
+        .then((snapshot) async {
+      if (snapshot.exists) {
+        _userCollection
+            .document((await _firebaseAuth.currentUser()).uid)
+            .collection('engagedLocationChannels')
+            .document(otherUID)
+            .delete();
+
+        Firestore.instance
+            .collection('user')
+            .document(otherUID)
+            .collection('engagedLocationChannels')
+            .document((await _firebaseAuth.currentUser()).uid)
+            .delete();
+        return;
+      }else{
+        print("there is no any engagedLocationChannels");
+      }
+    });
   }
 
   Future<void> getAmbulancePickRequest(
@@ -161,8 +193,9 @@ class FirebaseRepository extends RepoBase {
           .collection('ambulanceRequest')
           .document((await _firebaseAuth.currentUser()).uid)
           .setData(patient.toEntity().toDocument());
-    }).catchError(
-            (Exception e) => print("getAmbulancePickRequest ${e.toString()}"));
+    })
+          ..catchError((Exception e) =>
+              print("getAmbulancePickRequest ${e.toString()}"));
   }
 
   Future<void> getDeleteAmbulancePickRequest({String otherUID}) async {
@@ -190,8 +223,9 @@ class FirebaseRepository extends RepoBase {
         print('there is not any requst?');
         return;
       }
-    }).catchError((Exception e) =>
-        print("getDeleteAmbulancePickRequest ${e.toString()}"));
+    })
+          ..catchError((Exception e) =>
+              print("getDeleteAmbulancePickRequest ${e.toString()}"));
   }
 
   Stream<List<Patient>> patientList(String currentUID) {
@@ -203,7 +237,7 @@ class FirebaseRepository extends RepoBase {
         .map((snapshot) {
       return snapshot.documents
           .map((snapshot) =>
-          Patient.fromEntity(PatientEntity.formSnapshot(snapshot)))
+              Patient.fromEntity(PatientEntity.formSnapshot(snapshot)))
           .toList();
     });
   }
@@ -217,41 +251,41 @@ class FirebaseRepository extends RepoBase {
   }
 
   Stream<List<LocationMessage>> locationMessages() {
-    return _locationChannels
-        .snapshots().map((snapshot) {
-      return snapshot.documents.map((doc) =>
-          LocationMessage.formEntity(
-              LocationMessageEntity.fromDocumentSnapshot(doc))).toList();
+    return _locationChannels.snapshots().map((snapshot) {
+      return snapshot.documents
+          .map((doc) => LocationMessage.formEntity(
+              LocationMessageEntity.fromDocumentSnapshot(doc)))
+          .toList();
     });
   }
 
   Future<void> updateLocation(
-      {GeoPoint ambulanceLocation, String channelId,bool isFlag}) async {
+      {GeoPoint ambulanceLocation, String channelId, bool isFlag}) async {
     Map<String, Object> locationUpdate = Map();
 
     if (ambulanceLocation != null)
       locationUpdate['ambulancePosition'] = ambulanceLocation;
 
-        locationUpdate['isFlag']=isFlag;
-
+    locationUpdate['isFlag'] = isFlag;
 
     _locationChannels.document(channelId).updateData(locationUpdate);
-  }
-
-  Future<void> updateLocationMessage(
-      {GeoPoint ambulanceLocation, String channelId}) async {
-    Map<String, Object> updateLocation = Map();
-
-    if (ambulanceLocation != null)
-      updateLocation['ambulancePosition'] = ambulanceLocation;
-    _locationChannels.document(channelId).collection('locationShare').document(
-        channelId)
-        .updateData(updateLocation);
   }
 
   Stream<List<String>> getChannelIds() {
     return _locationChannels.snapshots().map((snapshot) {
       return snapshot.documents.map((doc) => doc.documentID).toList();
+    });
+  }
+
+  Future<void> getRemoveLocationChannel({String channelId}) async {
+    _locationChannels.document(channelId).get().then((locationChannel) {
+      if (locationChannel.exists) {
+        _locationChannels.document(channelId).delete();
+        return;
+      } else {
+        print("LocationChannel is not exists");
+        return;
+      }
     });
   }
 }

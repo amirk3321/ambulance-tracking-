@@ -6,7 +6,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:fluttertoast/fluttertoast.dart';
-import 'package:geoflutterfire/geoflutterfire.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:intl/intl.dart';
@@ -20,6 +19,9 @@ import 'package:ksars_smart/bloc/user/bloc.dart';
 import 'package:ksars_smart/model/LocationMessage.dart';
 import 'package:ksars_smart/model/paitent.dart';
 import 'package:ksars_smart/model/user.dart';
+import 'package:ksars_smart/repository/places_repository.dart';
+import 'package:ksars_smart/screen/pages/scheduling_screen.dart';
+import 'package:ksars_smart/screen/setting/settings.dart';
 import 'package:ksars_smart/utils/shared_pref.dart';
 import 'package:location/location.dart';
 
@@ -37,6 +39,7 @@ class GoogleScreen extends StatefulWidget {
 //state class
 class GoogleScreenState extends State<GoogleScreen> {
   var scaffoldKey = GlobalKey<ScaffoldState>();
+
   //mapController
   GoogleMapController _mapController;
 
@@ -44,42 +47,49 @@ class GoogleScreenState extends State<GoogleScreen> {
   MapType _mapType;
   MarkerId _currentLocationMarkerId;
   MarkerId _patientLocationMarkerId;
+  MarkerId _hospitalLocationMarkerId;
   MarkerId _ambulanceLocationMarkerId;
-  List<MarkerId> _patientLocationMarkerIdContainer = <MarkerId>[];
   PolylineId _customPolylineId;
-  MarkerId _customMarkerId;
+  PolylineId _patientToHospitalPolylineId;
   MarkerId _allAmbulanceMarkerId;
+  MarkerId _hospitalMarkerId;
   List<MarkerId> _ambulanceMarkerIdContiner = <MarkerId>[];
+  List<MarkerId> _hospitalMarkerIdContainer = <MarkerId>[];
   List<PolylineId> _ambulancePatientPolyLineContainer = <PolylineId>[];
 
   //controller bool variable
   bool isNormal = false;
-  bool _isShowScaffoldSnakeBar = true;
   bool _isSowAmbulance = true;
+  bool _isSowHospital = true;
+  bool _isEmergncy = true;
   bool _isLocationShare = false;
-  bool _isShowAmbulanceDetails=false;
-  int _updateDatabase=0;
+  bool _isShowAmbulanceDetails = false;
+  int _updateDatabase = 0;
+
   //list of markers
   Map<MarkerId, Marker> setMarkers = <MarkerId, Marker>{};
   Map<PolylineId, Polyline> polyline = <PolylineId, Polyline>{};
 
-
   //location
-  Geoflutterfire geo = Geoflutterfire();
   LatLng latLng;
-  GeoFirePoint point;
   Location _location = Location();
 
+  GeoPoint _patientCurrentLocation;
+  GeoPoint _ambulanceCurrentLocation;
+  GeoPoint _hospitalCurrentLocation;
+
+  String _currentLocationChannelId;
 
   //locationForPolyline Patient
   GeoPoint _patientLocation;
 
-  void setPatientLocation(GeoPoint patientLocation){
+  void setPatientLocation(GeoPoint patientLocation) {
     setState(() {
-      this._patientLocation=patientLocation;
+      this._patientLocation = patientLocation;
     });
   }
-  GeoPoint getPatientLocation(){
+
+  GeoPoint getPatientLocation() {
     return this._patientLocation;
   }
 
@@ -91,31 +101,28 @@ class GoogleScreenState extends State<GoogleScreen> {
     });
   }
 
-  String _dbChannelId;
-  GeoPoint _patientCurrentLocation;
-  GeoPoint _ambulanceCurrentLocation;
-
   void setChannelId({String channelId}) {
-    this._dbChannelId = channelId;
+    this._currentLocationChannelId = channelId;
   }
 
-  String getChannelId() => this._dbChannelId;
+  String getChannelId() => this._currentLocationChannelId;
 
   @override
   void initState() {
     _location.onLocationChanged().listen((locationData) {
       setState(() {
         latLng = LatLng(locationData.latitude, locationData.longitude);
-        point = geo.point(
-            latitude: locationData.latitude, longitude: locationData.longitude);
+
         SharedPref.getChannelId().then((channelId) {
           if (_isLocationShare == true) {
             //setState
             _ambulanceCurrentLocation =
                 GeoPoint(locationData.latitude, locationData.longitude);
-            print("checkLocationTesting ${getPatientLocation().latitude},${getPatientLocation().longitude}");
+            print(
+                "checkLocationTesting ${getPatientLocation().latitude},${getPatientLocation().longitude}");
             _ambulancePatientPolyLine(
-                patientLocation: GeoPoint(getPatientLocation().latitude,getPatientLocation().longitude),
+                patientLocation: GeoPoint(getPatientLocation().latitude,
+                    getPatientLocation().longitude),
                 ambulanceLocation: _ambulanceCurrentLocation);
             if (_ambulanceCurrentLocation != null)
               BlocProvider.of<LocationChannelBloc>(context).dispatch(
@@ -124,16 +131,15 @@ class GoogleScreenState extends State<GoogleScreen> {
                       channelId: channelId,
                       ambulanceLocation: _ambulanceCurrentLocation));
             //endSetState
-            _updateDatabase=0;
+            _updateDatabase = 0;
           } else {
-            if (_updateDatabase==0 || _updateDatabase==1){
+            if (_updateDatabase == 0 || _updateDatabase == 1) {
               BlocProvider.of<LocationChannelBloc>(context).dispatch(
-
-                  UpdateLocation(channelId: channelId, isFlag: _isLocationShare));
+                  UpdateLocation(
+                      channelId: channelId, isFlag: _isLocationShare));
               _removeAmbulanceLocationMarker();
               print("_updateDatabase updated ");
-            }else if (_updateDatabase <5)
-              _updateDatabase=3;
+            } else if (_updateDatabase < 5) _updateDatabase = 3;
 
             _updateDatabase++;
           }
@@ -179,6 +185,7 @@ class GoogleScreenState extends State<GoogleScreen> {
                       driverName: loc.driverName,
                       ambulance: loc.ambulancePosition,
                       patient: loc.patientPosition,
+                      hospital: loc.hospitalPosition
                     );
                   }
                 });
@@ -220,6 +227,9 @@ class GoogleScreenState extends State<GoogleScreen> {
                           ListTile(
                             leading: Icon(Icons.calendar_today),
                             title: Text('Scheduling'),
+                            onTap: (){
+                              Navigator.push(context, MaterialPageRoute(builder: (_) => SchedulingScreen()));
+                            },
                           ),
                           ListTile(
                             leading: Icon(Icons.notifications),
@@ -232,13 +242,8 @@ class GoogleScreenState extends State<GoogleScreen> {
                           ListTile(
                             leading: Icon(Icons.settings),
                             title: Text('Settings'),
-                          ),
-                          ListTile(
-                            leading: Icon(Icons.exit_to_app),
-                            title: Text('Logout'),
-                            onTap: () {
-                              BlocProvider.of<AuthBloc>(context)
-                                  .dispatch(LoggedOut());
+                            onTap: (){
+                              Navigator.of(context).push(MaterialPageRoute(builder: (_) => SettingsScreen(uid: widget.uid)));
                             },
                           ),
                         ],
@@ -262,45 +267,6 @@ class GoogleScreenState extends State<GoogleScreen> {
                               indoorViewEnabled: true,
                               trafficEnabled: true,
                               polylines: Set<Polyline>.of(polyline.values),
-                              onLongPress: (location) {
-                                _setCustomMarker(
-                                    location.latitude, location.longitude);
-                                assert(_isShowScaffoldSnakeBar == true);
-                                Scaffold.of(context).showSnackBar(SnackBar(
-                                  duration: Duration(minutes: 60),
-                                  content: Stack(
-                                    children: <Widget>[
-                                      RaisedButton(
-                                        child: Text('Start travel'),
-                                        onPressed: () {
-                                          _drawRoute(location.latitude,
-                                              location.longitude);
-                                        },
-                                      ),
-                                      Positioned(
-                                        right: 5,
-                                        child: IconButton(
-                                          icon: Icon(
-                                            Icons.close,
-                                            color: Colors.red,
-                                          ),
-                                          onPressed: () {
-                                            Scaffold.of(context)
-                                                .hideCurrentSnackBar();
-                                            setState(() {
-                                              _isShowScaffoldSnakeBar = true;
-                                              _removeCustomMarker();
-                                            });
-                                          },
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ));
-                                setState(() {
-                                  _isShowScaffoldSnakeBar = false;
-                                });
-                              },
                               onTap: (location) {},
                               myLocationEnabled: true,
                               myLocationButtonEnabled: false,
@@ -377,8 +343,9 @@ class GoogleScreenState extends State<GoogleScreen> {
                                           setState(() {
                                             if (_isLocationShare == true)
                                               _isLocationShare = false;
-
+                                            print("ChannelIdCurrent ${getChannelId().toString()}");
                                             _removePatientMarkerId();
+                                            _removeHospitalLocationMarker();
                                             _removeAmbulanceMarker();
                                             _removeAmbulancePatientPolyLine();
                                             _removePatientAmbulancePolyLine();
@@ -427,23 +394,28 @@ class GoogleScreenState extends State<GoogleScreen> {
                                           decoration: BoxDecoration(
                                               borderRadius:
                                                   BorderRadius.circular(50),
-                                              color: Colors.yellow
-                                                  .withOpacity(.6)),
+                                              color: _isSowHospital
+                                                  ? Colors.yellow
+                                                      .withOpacity(.6)
+                                                  : Colors.red),
                                           child: IconButton(
                                             tooltip: "NearByHostpital",
-                                            icon: Icon(Icons.local_hospital),
-                                            onPressed: () async{
-
-                                              Fluttertoast.showToast(
-                                                  msg:
-                                                      "This is Center Short Toast",
-                                                  toastLength:
-                                                      Toast.LENGTH_SHORT,
-                                                  gravity: ToastGravity.TOP,
-                                                  timeInSecForIos: 1,
-                                                  backgroundColor: Colors.red,
-                                                  textColor: Colors.white,
-                                                  fontSize: 16.0);
+                                            icon: Icon(
+                                              Icons.local_hospital,
+                                              color: _isSowHospital
+                                                  ? Colors.black
+                                                  : Colors.white,
+                                            ),
+                                            onPressed: () async {
+                                              setState(() {
+                                                if (_isSowHospital == true) {
+                                                  getNearByPlaces();
+                                                  _isSowHospital = false;
+                                                } else {
+                                                  _isSowHospital = true;
+                                                  _removeHospitalMarker();
+                                                }
+                                              });
                                             },
                                           ),
                                         ),
@@ -455,12 +427,27 @@ class GoogleScreenState extends State<GoogleScreen> {
                                           decoration: BoxDecoration(
                                               borderRadius:
                                                   BorderRadius.circular(50),
-                                              color: Colors.yellow
-                                                  .withOpacity(.6)),
+                                              color: _isEmergncy
+                                                  ? Colors.yellow
+                                                      .withOpacity(.6)
+                                                  : Colors.red),
                                           child: IconButton(
                                             tooltip: "Emergeny",
-                                            icon: Icon(Icons.add_alert),
-                                            onPressed: () {},
+                                            icon: Icon(
+                                              Icons.add_alert,
+                                              color: _isEmergncy
+                                                  ? Colors.black
+                                                  : Colors.white,
+                                            ),
+                                            onPressed: () {
+                                              setState(() {
+                                                if (_isEmergncy == true) {
+                                                  _isEmergncy = false;
+                                                } else {
+                                                  _isEmergncy = true;
+                                                }
+                                              });
+                                            },
                                           ),
                                         ),
                                         SizedBox(
@@ -491,6 +478,8 @@ class GoogleScreenState extends State<GoogleScreen> {
                                                   _isSowAmbulance = true;
                                                   _removeAmbulanceMarker();
                                                   _removeAmbulanceLocationMarker();
+                                                  _removePatientAmbulancePolyLine();
+                                                  _removeHospitalLocationMarker();
                                                 }
                                               });
                                             },
@@ -503,12 +492,31 @@ class GoogleScreenState extends State<GoogleScreen> {
                                           decoration: BoxDecoration(
                                               borderRadius:
                                                   BorderRadius.circular(50),
-                                              color: Colors.yellow
-                                                  .withOpacity(.6)),
+                                              color: _isSowHospital
+                                                  ? Colors.yellow
+                                                      .withOpacity(.6)
+                                                  : Colors.red),
                                           child: IconButton(
                                             tooltip: "NearByHospital",
-                                            icon: Icon(Icons.local_hospital),
-                                            onPressed: () async{},
+                                            icon: Icon(
+                                              Icons.local_hospital,
+                                              color: _isSowHospital
+                                                  ? Colors.black
+                                                  : Colors.white,
+                                            ),
+                                            onPressed: () async {
+                                              print(
+                                                  "placesName NearByHospital button pressed");
+                                              setState(() {
+                                                if (_isSowHospital == true) {
+                                                  getNearByPlaces();
+                                                  _isSowHospital = false;
+                                                } else {
+                                                  _isSowHospital = true;
+                                                  _removeHospitalMarker();
+                                                }
+                                              });
+                                            },
                                           ),
                                         ),
                                       ],
@@ -518,11 +526,18 @@ class GoogleScreenState extends State<GoogleScreen> {
                         ),
                   floatingActionButton: FloatingActionButton(
                     onPressed: () {
-                      _mapController.animateCamera(
-                          CameraUpdate.newCameraPosition(CameraPosition(
-                        target: latLng,
-                        zoom: 16,
-                      )));
+                      if (latLng!=null){
+                        _mapController.animateCamera(
+                            CameraUpdate.newCameraPosition(CameraPosition(
+                              target: latLng,
+                              zoom: 16,
+                            )));
+                      }else{
+                        setState(()async {
+                          latLng=LatLng((await _location.getLocation()).latitude,(await _location.getLocation()).longitude);
+                        });
+                      }
+
                     },
                     child: Icon(
                       Icons.my_location,
@@ -553,6 +568,7 @@ class GoogleScreenState extends State<GoogleScreen> {
   }
 
   _setAmbulance(UsersLoaded state) async {
+
     var curentUserInfo = state.user
         .firstWhere((user) => user.uid == widget.uid, orElse: () => User());
 
@@ -562,107 +578,118 @@ class GoogleScreenState extends State<GoogleScreen> {
     final Uint8List markerIcon =
         await getBytesFromAsset("assets/ambulance.png", 100);
 
-    users.forEach((user) async{
+    users.forEach((user) async {
+      print("checkIsBusy ${user.isBusy}");
+      List<Placemark> placeMarker = await Geolocator()
+          .placemarkFromCoordinates(user.point.latitude, user.point.longitude);
+      placeMarker.forEach((places) {
+        if (!setMarkers.containsKey(user.uid)) {
+          _allAmbulanceMarkerId =
+              MarkerId("allAmbulanceMarkerId${Random().nextInt(50)}");
+          _ambulanceMarkerIdContiner.add(_allAmbulanceMarkerId);
+          Marker marker = Marker(
+            markerId: _allAmbulanceMarkerId,
+            onTap: () async {
+              Scaffold.of(context).showSnackBar(
+                SnackBar(
+                  duration: Duration(minutes: 2),
+                  content: Container(
+                    child: SingleChildScrollView(
+                      child: Row(
+                        children: <Widget>[
+                          Container(
+                            height: 80.0,
+                            width: 80.0,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              border:
+                                  Border.all(color: const Color(0x33A6A6A6)),
+                              // image: new Image.asset(_image.)
+                            ),
+                            child: Image.asset('assets/default.png'),
+                          ),
+                          Container(
+                            margin: EdgeInsets.only(top: 20, left: 5),
+                            height: 95,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: <Widget>[
+                                Text(
+                                  user.name,
+                                  style: TextStyle(fontWeight: FontWeight.bold),
+                                ),
+                                Text(user.email),
+                                Text(
+                                    "Distance ${(await Geolocator().distanceBetween(latLng.latitude, latLng.longitude, user.point.latitude, user.point.longitude)).round()}m"),
+                                Container(
+                                  height: 40,
+                                  child: Row(
+                                    children: <Widget>[
+                                      RaisedButton(
+                                        onPressed: () async {
+                                          Fluttertoast.showToast(msg: "request cancel successfuly",gravity: ToastGravity.TOP,backgroundColor: Colors.green[800],toastLength: Toast.LENGTH_LONG);
 
-     List<Placemark> placeMarker=await Geolocator().placemarkFromCoordinates(user.point.latitude, user.point.longitude);
-     placeMarker.forEach((places){
-       if (!setMarkers.containsKey(user.uid)) {
-         _allAmbulanceMarkerId =
-             MarkerId("allAmbulanceMarkerId${Random().nextInt(50)}");
-         _ambulanceMarkerIdContiner.add(_allAmbulanceMarkerId);
-         Marker marker = Marker(
-           markerId: _allAmbulanceMarkerId,
-           onTap: () async{
-             Scaffold.of(context).showSnackBar(SnackBar(
-               duration: Duration(minutes: 2),
-               content: Container(
-                 child: SingleChildScrollView(
-                   child: Row(
-                     children: <Widget>[
-                       Container(
-                         height: 80.0,
-                         width: 80.0,
-                         decoration: BoxDecoration(
-                           shape: BoxShape.circle,
-                           border: Border.all(color: const Color(0x33A6A6A6)),
-                           // image: new Image.asset(_image.)
-                         ),
-                         child: Image.asset('assets/default.png'),
-                       ),
-                       Container(
-                         margin: EdgeInsets.only(top: 20, left: 5),
-                         height: 95,
-                         child: Column(
-                           crossAxisAlignment: CrossAxisAlignment.start,
-                           children: <Widget>[
-                             Text(
-                               user.name,
-                               style: TextStyle(fontWeight: FontWeight.bold),
-                             ),
-                             Text(user.email),
-                             Text("Distance ${(await Geolocator().distanceBetween(latLng.latitude, latLng.longitude, user.point.latitude, user.point.longitude)).round()}m"),
-                             Container(
-                               height: 40,
-                               child: Row(
-                                 children: <Widget>[
-                                   RaisedButton(
-                                     onPressed: () async {
-                                       print(
-                                           "AmbulanceRequestBloc cancel button pressed");
-                                       BlocProvider.of<AmbulanceRequestBloc>(
-                                           context)
-                                           .dispatch(AmbulanceRequestCancel(
-                                           otherUID: user.uid));
-                                     },
-                                     child: Text("cancel"),
-                                   ),
-                                   RaisedButton(
-                                     onPressed: () async {
-
-                                       BlocProvider.of<AmbulanceRequestBloc>(
-                                           context)
-                                           .dispatch(AmbulanceRequest(
-                                           otherUID: user.uid,
-                                           patient: Patient(
-                                               name: curentUserInfo.name,
-                                               uid: curentUserInfo.uid,
-                                               profile:
-                                               curentUserInfo.profile,
-                                               time: Timestamp.now(),
-                                               patientPosition:
-                                               _patientCurrentLocation,
-                                               request_type: 'sent')));
-                                     },
-                                     child: Text("Pick"),
-                                   ),
-                                 ],
-                               ),
-                             )
-                           ],
-                         ),
-                       ),
-                     ],
-                   ),
-                 ),
-               ),
-             ));
-           },
-           icon: BitmapDescriptor.fromBytes(markerIcon),
-           infoWindow: InfoWindow(
-               title: "${places.name} ,${places.administrativeArea}",
-               snippet: "${user.name} * driver ${user.type}"),
-           position: LatLng(user.point.latitude, user.point.longitude),
-         );
-         setState(() {
-           setMarkers[_allAmbulanceMarkerId] = marker;
-         });
-         print(user.name);
-       } else {
-         print('Already Marker set');
-       }
-     });
-
-
+                                          print(
+                                              "AmbulanceRequestBloc cancel button pressed");
+                                          BlocProvider.of<AmbulanceRequestBloc>(
+                                                  context)
+                                              .dispatch(AmbulanceRequestCancel(
+                                                  otherUID: user.uid));
+                                        },
+                                        child: Text("cancel"),
+                                      ),
+                                      RaisedButton(
+                                        color: user.isBusy == true ? Colors.blue[200] : Colors.blue[800],
+                                        onPressed: user.isBusy ==true ? null : () async {
+                                          Fluttertoast.showToast(msg: "request send to ${user.name} successfuly",gravity: ToastGravity.TOP,backgroundColor: Colors.green[800],toastLength: Toast.LENGTH_LONG);
+                                          BlocProvider.of<AmbulanceRequestBloc>(
+                                                  context)
+                                              .dispatch(AmbulanceRequest(
+                                                  otherUID: user.uid,
+                                                  patient: Patient(
+                                                      name: curentUserInfo.name,
+                                                      uid: curentUserInfo.uid,
+                                                      profile: curentUserInfo
+                                                          .profile,
+                                                      hospitalPosition:
+                                                          _hospitalCurrentLocation ==
+                                                                  GeoPoint(0.0,0.0)
+                                                              ? null
+                                                              : _hospitalCurrentLocation,
+                                                      time: Timestamp.now(),
+                                                      patientPosition:
+                                                          _patientCurrentLocation,
+                                                      request_type: 'sent')));
+                                        },
+                                        child: Text("Pick"),
+                                      ),
+                                    ],
+                                  ),
+                                )
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            },
+            icon: BitmapDescriptor.fromBytes(markerIcon),
+            infoWindow: InfoWindow(
+                title: "${places.name} ,${places.administrativeArea}",
+                snippet: "${user.name} * driver ${user.type}"),
+            position: LatLng(user.point.latitude, user.point.longitude),
+          );
+          setState(() {
+            setMarkers[_allAmbulanceMarkerId] = marker;
+          });
+          print(user.name);
+        } else {
+          print('Already Marker set');
+        }
+      });
     });
   }
 
@@ -681,17 +708,6 @@ class GoogleScreenState extends State<GoogleScreen> {
     });
   }
 
-  _setCustomMarker(lat, long) async {
-    _customMarkerId = MarkerId("customMarkerId${Random.secure().nextInt(20)}");
-    var customMarker = Marker(
-        markerId: _customMarkerId,
-        position: LatLng(lat, long),
-        infoWindow: InfoWindow(title: "$lat,$long", snippet: '*'));
-    setState(() {
-      setMarkers[_customMarkerId] = customMarker;
-    });
-  }
-
   _removeCurrentMarker() {
     setState(() {
       if (setMarkers.containsKey(_currentLocationMarkerId)) {
@@ -700,37 +716,6 @@ class GoogleScreenState extends State<GoogleScreen> {
     });
   }
 
-  _removeCustomMarker() {
-    setState(() {
-      if (setMarkers.containsKey(_customMarkerId)) {
-        setMarkers.remove(_customMarkerId);
-      }
-
-      if (polyline.containsValue(_customPolylineId)) {
-        polyline.removeWhere((id, polyline) => id == _customPolylineId);
-      }
-    });
-  }
-
-  _drawRoute(lat, lang) async {
-    final current = await _location.getLocation();
-    final List<LatLng> routes = List();
-    routes.add(LatLng(lat, lang));
-    routes.add(LatLng(current.latitude, current.longitude));
-    _customPolylineId = PolylineId('currentRoutes1${Random().nextInt(50)}');
-    var line = Polyline(
-      polylineId: _customPolylineId,
-      consumeTapEvents: true,
-      width: 6,
-      color: Colors.red,
-      jointType: JointType.bevel,
-      points: routes,
-    );
-
-    setState(() {
-      polyline[_customPolylineId] = line;
-    });
-  }
 
   Future<Uint8List> getBytesFromAsset(String path, int width) async {
     ByteData data = await rootBundle.load(path);
@@ -762,18 +747,26 @@ class GoogleScreenState extends State<GoogleScreen> {
                           ListView.builder(
                               itemCount: state.patient.length,
                               itemBuilder: (BuildContext context, int index) {
-                                GeoPoint point = GeoPoint(
+                                GeoPoint patientLocation = GeoPoint(
                                     state.patient[index].patientPosition
                                         .latitude,
                                     state.patient[index].patientPosition
                                         .longitude);
+                                GeoPoint hospitalLocation;
+                                if (state.patient[index].hospitalPosition !=null){
+                                  hospitalLocation=GeoPoint(
+                                      state.patient[index].hospitalPosition.latitude,
+                                      state.patient[index].hospitalPosition.longitude
+                                  );
+                                }
                                 return singlePatientLayout(
-                                  senderUID: state.patient[index].uid,
+                                  hospitalLocation: hospitalLocation==null ? null : hospitalLocation,
+                                    senderUID: state.patient[index].uid,
                                     locationMessage: locationMessage,
                                     currentPatientName: currentPatientName,
                                     currentPatientLocation:
                                         currentPatientLocation,
-                                    patientLocation: point,
+                                    patientLocation: patientLocation,
                                     driverName: driverName,
                                     otherUID: state.patient[index].uid,
                                     profile: state.patient[index].profile == ''
@@ -811,7 +804,8 @@ class GoogleScreenState extends State<GoogleScreen> {
                   child: Text("BottomSheet not Generated"),
                 );
               },
-            ));
+            ),
+    );
   }
 
   singlePatientLayout(
@@ -822,6 +816,7 @@ class GoogleScreenState extends State<GoogleScreen> {
           driverName,
           String senderUID,
           GeoPoint patientLocation,
+          GeoPoint hospitalLocation,
           GeoPoint currentPatientLocation,
           LocationLoaded locationMessage,
           currentPatientName}) =>
@@ -857,7 +852,16 @@ class GoogleScreenState extends State<GoogleScreen> {
             Spacer(),
             FlatButton(
               onPressed: () {
-                print('cancel');
+                if (_isLocationShare==true){
+                  Fluttertoast.showToast(msg: "Stop Befere if you want to Cancel request",gravity: ToastGravity.BOTTOM,backgroundColor: Colors.red,toastLength: Toast.LENGTH_LONG);
+                }else{
+                  print('cancel');
+                  BlocProvider.of<AmbulanceRequestBloc>(context).dispatch(AmbulanceRequestCancel(otherUID: otherUID));
+                  BlocProvider.of<LocationChannelBloc>(context).dispatch(DeleteEngagedLocationChannel(otherUID: otherUID));
+                  BlocProvider.of<LocationChannelBloc>(context).dispatch(DeleteLocationChannel(channelId: getChannelId().toString()));
+                  BlocProvider.of<UserBloc>(context).dispatch(UpdateUser(user: User(isBusy: true,uid: widget.uid)));
+                }
+
               },
               child: Text('cancel'),
             ),
@@ -873,6 +877,7 @@ class GoogleScreenState extends State<GoogleScreen> {
                         ambulancePosition: _ambulanceCurrentLocation == null
                             ? null
                             : _ambulanceCurrentLocation,
+                        hospitalPosition: hospitalLocation,
                         patientPosition: GeoPoint(
                           patientLocation.latitude,
                           patientLocation.longitude,
@@ -885,19 +890,27 @@ class GoogleScreenState extends State<GoogleScreen> {
                       } else {
                         _isLocationShare = false;
                       }
+                      BlocProvider.of<UserBloc>(context).dispatch(UpdateUser(user: User(isBusy: false,uid: widget.uid)));
+                      setChannelId(channelId: e.channelId);
                       setPatientLocation(e.patientPosition);
                       _removePatientMarkerId();
                       _patientLocationMarker(e.patientPosition, e.patientName);
+                      _removeHospitalLocationMarker();
+                      _hospitalLocationMarker(hospital: e.hospitalPosition);
+                      _patientToHospitalPolyLine(patientLocation: e.patientPosition,hospitalLocation: e.hospitalPosition);
                     }
                   });
-
                 });
+
               },
-              child: Text('Confirm'),
+              child:  _isLocationShare ==false ? Text('Confirm') : Row(children: <Widget>[Text("Confirm"),CircularProgressIndicator()],),
             )
           ],
         ),
       );
+
+
+  //markers routes below
 
   _patientLocationMarker(GeoPoint point, name) async {
     if (point != null) {
@@ -930,6 +943,8 @@ class GoogleScreenState extends State<GoogleScreen> {
     });
   }
 
+
+  //
   _ambulancePatientPolyLine(
       {GeoPoint patientLocation, GeoPoint ambulanceLocation}) async {
     final List<LatLng> routes = List();
@@ -951,6 +966,7 @@ class GoogleScreenState extends State<GoogleScreen> {
     });
   }
 
+  //single ambulance to patient route line remove
   _removeAmbulancePatientPolyLine() {
     setState(() {
       _ambulancePatientPolyLineContainer.forEach((polylineMarkerId) {
@@ -961,22 +977,29 @@ class GoogleScreenState extends State<GoogleScreen> {
     });
   }
 
+  //single ambulance to patient route line draw
   _removeAmbulancePatientPolyLineTest(
       {GeoPoint ambulance,
       String driverName,
       GeoPoint patient,
+        GeoPoint hospital,
       bool isFlag}) async {
-    assert(ambulance!=null);
+    assert(ambulance != null);
     if (isFlag == true) {
       _patientAmbulancePolyLine(
           ambulanceLocation: ambulance,
           patientLocation: GeoPoint(latLng.latitude, latLng.longitude));
       _ambulanceLocationMarker(ambulance, driverName);
+      assert(hospital !=null);
+      _hospitalLocationMarker(hospital: hospital);
+      _patientToHospitalPolyLine(hospitalLocation: hospital,patientLocation: GeoPoint(latLng.latitude, latLng.longitude));
     } else {
       _removePatientAmbulancePolyLine();
+      _removeHospitalLocationMarker();
     }
   }
 
+  //single remove patient to ambulance route line
   _removePatientAmbulancePolyLine() {
     setState(() {
       _ambulancePatientPolyLineContainer.forEach((polylineMarkerId) {
@@ -986,9 +1009,8 @@ class GoogleScreenState extends State<GoogleScreen> {
       });
     });
   }
-
-  _patientAmbulancePolyLine(
-      {GeoPoint patientLocation, GeoPoint ambulanceLocation}) async {
+//single patient to ambulance route line
+  _patientAmbulancePolyLine({GeoPoint patientLocation, GeoPoint ambulanceLocation}) async {
     final List<LatLng> routes = List();
     routes.add(LatLng(patientLocation.latitude, patientLocation.longitude));
     routes.add(LatLng(ambulanceLocation.latitude, ambulanceLocation.longitude));
@@ -1008,6 +1030,7 @@ class GoogleScreenState extends State<GoogleScreen> {
     });
   }
 
+  //single ambulance marker that user selected
   _ambulanceLocationMarker(GeoPoint ambulance, String driverName) async {
     final Uint8List patientMarker =
         await getBytesFromAsset("assets/ambulance.png", 100);
@@ -1022,13 +1045,14 @@ class GoogleScreenState extends State<GoogleScreen> {
         icon: BitmapDescriptor.fromBytes(patientMarker),
         position: LatLng(ambulance.latitude, ambulance.longitude),
         infoWindow: InfoWindow(
-            title: "${point.latitude},${point.longitude}",
+            title: "${ambulance.latitude},${ambulance.longitude}",
             snippet: 'Patient name $driverName *Patient Location'));
     setState(() {
       setMarkers[_ambulanceLocationMarkerId] = ambulanceMarker;
     });
   }
 
+  //single ambulance marker remove form the map
   _removeAmbulanceLocationMarker() {
     setState(() {
       _ambulanceMarkerIdContiner.forEach((ambulanceMarkerId) {
@@ -1038,5 +1062,101 @@ class GoogleScreenState extends State<GoogleScreen> {
       });
     });
   }
-  void getNearByPlaces(){}
+  //remove single hospital marker
+  _removeHospitalLocationMarker(){
+    setState(() {
+      if (setMarkers.containsKey(_hospitalLocationMarkerId)) {
+        setMarkers.remove(_hospitalLocationMarkerId);
+      }
+    });
+  }
+  //single hospital marker that patient select
+  _hospitalLocationMarker({GeoPoint hospital})async{
+    if (hospital != null) {
+      final Uint8List hospitalMarker =
+          await getBytesFromAsset("assets/hospital.png", 100);
+      print("checkPointLocation ${hospital.latitude} ,${hospital.longitude}");
+      _hospitalLocationMarkerId = MarkerId('hospitalMarkerId001');
+      var hospitalMarkerId = Marker(
+          consumeTapEvents: true,
+          onTap: () {
+
+          },
+          markerId: _hospitalLocationMarkerId,
+          icon: BitmapDescriptor.fromBytes(hospitalMarker),
+          position: LatLng(hospital.latitude, hospital.longitude),
+          infoWindow: InfoWindow(
+              title: "${hospital.latitude},${hospital.longitude}",),);
+      setState(() {
+        setMarkers[_hospitalLocationMarkerId] = hospitalMarkerId;
+      });
+    }
+  }
+
+  //single route line btw patient and hospital
+  _patientToHospitalPolyLine(
+      {GeoPoint patientLocation, GeoPoint hospitalLocation}) async {
+    assert(patientLocation!=null);
+    assert(hospitalLocation!=null);
+    final List<LatLng> routes = List();
+    routes.add(LatLng(patientLocation.latitude, patientLocation.longitude));
+    routes.add(LatLng(hospitalLocation.latitude, hospitalLocation.longitude));
+    _patientToHospitalPolylineId = PolylineId('PaitenttoHospitalRountePoint001');
+    _ambulancePatientPolyLineContainer.add(_patientToHospitalPolylineId);
+    var line = Polyline(
+      polylineId: _patientToHospitalPolylineId,
+      consumeTapEvents: true,
+      width: 6,
+      color: Colors.red,
+      jointType: JointType.bevel,
+      points: routes,
+    );
+
+    setState(() {
+      polyline[_patientToHospitalPolylineId] = line;
+    });
+  }
+
+
+  //get nearbyHospital form server
+  void getNearByPlaces() async {
+    final result = await PlacesRepository().getNearByPlaces(latLng);
+    final Uint8List hospitalMarkerIcon =
+        await getBytesFromAsset("assets/hospital.png", 100);
+    result.forEach((places) {
+      _hospitalMarkerId = MarkerId("hospitalMarkerId${Random().nextInt(50)}");
+      _hospitalMarkerIdContainer.add(_hospitalMarkerId);
+      Marker marker = Marker(
+        markerId: _hospitalMarkerId,
+        onTap: () async {
+          setState(() {
+            _hospitalCurrentLocation = GeoPoint(
+                places.geometry.location.lat,
+                places.geometry.location.lng);
+            Fluttertoast.showToast(msg: "${places.name} is sellected successfuly",toastLength: Toast.LENGTH_SHORT,backgroundColor: Colors.red);
+            print("hospitalName ${places.name},${ places.geometry.location.lat},${places.geometry.location.lng}");
+          });
+        },
+        icon: BitmapDescriptor.fromBytes(hospitalMarkerIcon),
+        infoWindow: InfoWindow(
+            title: "${places.name}",
+            snippet: "${places.formattedAddress}"),
+        position:
+            LatLng(places.geometry.location.lat, places.geometry.location.lng),
+      );
+      setState(() {
+        setMarkers[_hospitalMarkerId] = marker;
+      });
+    });
+  }
+  //nearbyHospital all marker remove form the map
+  _removeHospitalMarker() async {
+    setState(() {
+      _hospitalMarkerIdContainer.forEach((markerIds) {
+        if (setMarkers.containsKey(markerIds)) {
+          setMarkers.remove(markerIds);
+        }
+      });
+    });
+  }
 }

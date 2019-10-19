@@ -33,6 +33,10 @@ class LocationChannelBloc
       yield* _mapOfLoadLocationMessageToState();
     }else if(event is UpdateLocation){
       yield* _mapOfUpdateLocation(event);
+    }else if (event is DeleteLocationChannel){
+      yield* _mapOfDeleteLocationChannel(event);
+    }else if (event is DeleteEngagedLocationChannel){
+      yield* _mapOfDeleteEngagedLocationChannel(event);
     }
   }
 
@@ -53,6 +57,7 @@ class LocationChannelBloc
                   driverName: event.driverName,
                   patientName: event.patientName,
                   patientPosition: event.patientPosition,
+                  hospitalPosition:event.hospitalPosition,
                   ambulancePosition: event.ambulancePosition),
               channelId: channelId);
           setChannelId(channelId: channelId);
@@ -62,12 +67,6 @@ class LocationChannelBloc
               .listen((locationMessages) {
             dispatch(LocationUpdated(locationMessages: locationMessages));
           });
-//          _locationMessageStreamSubsription?.cancel();
-//          _locationMessageStreamSubsription = _repository
-//              .locationMessages(channelId: channelId)
-//              .listen((locationMessages) {
-//            dispatch(LocationUpdated(locationMessages: locationMessages));
-//          });
         });
   }
 
@@ -85,17 +84,6 @@ class LocationChannelBloc
       dispatch(LocationUpdated(locationMessages: locationMessages));
     });
 
-//    _repository.getChannelIds().listen((ids){
-//      ids.forEach((channelIds){
-//        _locationMessageStreamSubsription = _repository
-//            .locationMessages(channelId: channelIds)
-//            .listen((locationMessages) {
-//          dispatch(LocationUpdated(locationMessages: locationMessages,channelIds: ids));
-//        });
-//      });
-//    });
-
-
   }
 
  Stream<LocationChannelState> _mapOfUpdateLocation(UpdateLocation event) async*{
@@ -112,5 +100,13 @@ class LocationChannelBloc
   }
   String getChannelId(){
     return _channelId;
+  }
+
+  Stream<LocationChannelState> _mapOfDeleteLocationChannel(DeleteLocationChannel event) async*{
+    _repository.getRemoveLocationChannel(channelId: event.channelId);
+  }
+
+  Stream<LocationChannelState> _mapOfDeleteEngagedLocationChannel(DeleteEngagedLocationChannel event) async*{
+    _repository.getDeleteLocationChannel(otherUID: event.otherUID);
   }
 }

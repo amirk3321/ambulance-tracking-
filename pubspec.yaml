@@ -26,7 +26,13 @@ dependencies:
   flutter_bloc: ^0.21.0
   equatable: ^0.5.1
   bloc: ^0.15.0
+  built_value: ^6.7.1
 
+  #calendar
+  flutter_calendar_carousel: ^1.4.0
+
+  #networking operation
+  http: ^0.12.0+2
   #dateFormat
   intl: ^0.16.0
 

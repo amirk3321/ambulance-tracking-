@@ -14,8 +14,7 @@ class LoadUser extends UserEvent{
 
 class UpdateUser extends UserEvent{
   final User user;
-  final GeoPoint point;
-  UpdateUser({this.user,this.point}) : super([user,point]);
+  UpdateUser({this.user}) : super([user]);
   @override
   String toString() => 'UpdateUser';
 }

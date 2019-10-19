@@ -17,7 +17,8 @@ class ConfirmLocationChannelCreate extends LocationChannelEvent{
   final String driverName;
   final GeoPoint patientPosition;
   final GeoPoint ambulancePosition;
-  ConfirmLocationChannelCreate({this.otherUID,this.isFlag,this.currentUID,this.patientName,this.driverName,this.patientPosition,this.ambulancePosition}) :super([otherUID,currentUID,patientName,driverName,patientPosition,ambulancePosition]);
+  final GeoPoint hospitalPosition;
+  ConfirmLocationChannelCreate({this.otherUID,this.isFlag,this.currentUID,this.patientName,this.driverName,this.patientPosition,this.ambulancePosition,this.hospitalPosition}) :super([otherUID,currentUID,patientName,driverName,patientPosition,ambulancePosition,hospitalPosition]);
 
   @override
   String toString() => 'ConfirmLocationChannelCreate';
@@ -45,3 +46,16 @@ class UpdateLocation extends LocationChannelEvent{
   String toString() => 'UpdateLocation';
 }
 
+class DeleteLocationChannel extends LocationChannelEvent{
+  final String channelId;
+  DeleteLocationChannel({this.channelId}) :super([channelId]);
+  @override
+  String toString() => "DeleteLocationChannel";
+}
+
+class DeleteEngagedLocationChannel extends LocationChannelEvent{
+  final String otherUID;
+  DeleteEngagedLocationChannel({this.otherUID}) : super([otherUID]);
+  @override
+  String toString() => "DeleteEngagedLocationChannel";
+}

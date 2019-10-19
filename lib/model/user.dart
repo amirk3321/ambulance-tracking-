@@ -10,6 +10,7 @@ class User {
   final String phone;
   final String profile;
   final GeoPoint point;
+  final bool isBusy;
 
   User(
       {this.email = '',
@@ -18,8 +19,9 @@ class User {
       this.phone = '',
       this.uid = '',
       this.profile = '',
-      this.point
-      });
+      this.point,
+      this.isBusy = false});
+
   User copyWith({
     String email,
     String name,
@@ -28,6 +30,7 @@ class User {
     String phone,
     String profile,
     GeoPoint point,
+    bool isBusy
   }) {
     return User(
       email: email ?? this.email,
@@ -37,6 +40,7 @@ class User {
       phone: phone ?? this.phone,
       profile: profile ?? this.profile,
       point: point ?? this.point,
+      isBusy: isBusy ?? this.isBusy,
     );
   }
 
@@ -48,7 +52,8 @@ class User {
       uid.hashCode ^
       phone.hashCode ^
       profile.hashCode ^
-      point.hashCode;
+      point.hashCode ^
+      isBusy.hashCode;
 
   @override
   bool operator ==(other) =>
@@ -61,17 +66,18 @@ class User {
           uid == other.uid &&
           phone == other.phone &&
           profile == other.profile &&
-          point == other.point;
+          point == other.point &&
+          isBusy == other.isBusy;
 
   @override
   String toString() =>
-      'User { email: $email, name: $name, uid: $uid profile $profile phone $phone type $type, point $point}';
+      'User { email: $email, name: $name, uid: $uid profile $profile phone $phone type $type, point $point , isBusy $isBusy}';
 
-
-  UserEntity toEntity(){
-    return UserEntity(email,name,type,uid,phone,profile,point);
+  UserEntity toEntity() {
+    return UserEntity(email, name, type, uid, phone, profile, point,isBusy);
   }
-  static User fromEntity(UserEntity entity){
+
+  static User fromEntity(UserEntity entity) {
     return User(
       email: entity.email,
       name: entity.name,
@@ -80,6 +86,7 @@ class User {
       phone: entity.phone,
       profile: entity.profile,
       point: entity.point,
+      isBusy: entity.isBusy,
     );
   }
 }

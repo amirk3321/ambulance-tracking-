@@ -46,8 +46,9 @@ class UserBloc extends Bloc<UserEvent, UserState> {
       profile: event.user.profile,
       phoneNumber: event.user.phone,
       name: event.user.name,
+      isBusy: event.user.isBusy,
       uid: event.user.uid,
-      point: event.point
+      point: event.user.point
     );
   }
 }

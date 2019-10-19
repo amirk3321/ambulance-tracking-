@@ -10,6 +10,7 @@ class LocationMessage {
   final String patientName;
   final GeoPoint ambulancePosition;
   final GeoPoint patientPosition;
+  final GeoPoint hospitalPosition;
   final List<String> locationChannelUserIds;
 
   LocationMessage(
@@ -19,6 +20,7 @@ class LocationMessage {
       this.channelId = '',
       this.ambulancePosition,
       this.patientPosition,
+      this.hospitalPosition,
       this.driverName,
       this.patientName,
       this.locationChannelUserIds = const []});
@@ -30,6 +32,7 @@ class LocationMessage {
     String recipientId,
     GeoPoint ambulancePosition,
     GeoPoint patientPosition,
+    GeoPoint hospitalPosition,
     List<String> locationChannelUserIds,
   }) {
     return LocationMessage(
@@ -39,6 +42,7 @@ class LocationMessage {
       recipientId: recipientId ?? this.recipientId,
       ambulancePosition: ambulancePosition ?? this.ambulancePosition,
       patientPosition: patientPosition ?? this.patientPosition,
+      hospitalPosition: hospitalPosition ?? this.hospitalPosition,
       locationChannelUserIds: locationChannelUserIds ?? this.locationChannelUserIds,
     );
   }
@@ -52,6 +56,7 @@ class LocationMessage {
       recipientId.hashCode ^
       ambulancePosition.hashCode ^
       patientPosition.hashCode ^
+      hospitalPosition.hashCode ^
       patientName.hashCode ^
       driverName.hashCode^
       locationChannelUserIds.hashCode;
@@ -67,6 +72,7 @@ class LocationMessage {
           recipientId == other.recipientId &&
           ambulancePosition == other.ambulancePosition &&
           patientPosition == other.patientPosition &&
+          hospitalPosition == other.hospitalPosition &&
           patientName == other.patientName &&
           driverName == other.driverName &&
           locationChannelUserIds == other.locationChannelUserIds;
@@ -79,6 +85,7 @@ class LocationMessage {
   channelId $channelId, 
   ambulancePosition $ambulancePosition,
   paitientPosition $patientPosition,
+  hospitalPosition $hospitalPosition,
   patientName $patientName,
   driverName $driverName
   ''';
@@ -90,6 +97,7 @@ class LocationMessage {
       this.recipientId,
       this.ambulancePosition,
       this.patientPosition,
+      this.hospitalPosition,
       this.patientName,
       this.driverName,
   locationChannelUserIds: this.locationChannelUserIds);
@@ -102,6 +110,7 @@ class LocationMessage {
         recipientId: entity.recipientId,
         ambulancePosition: entity.ambulancePosition,
         patientPosition: entity.patientPosition,
+        hospitalPosition: entity.hospitalPosition,
         patientName: entity.patientName,
         driverName: entity.driverName,
         locationChannelUserIds: entity.locationChannelUserIds,
