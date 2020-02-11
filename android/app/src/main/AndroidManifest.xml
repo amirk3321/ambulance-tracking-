@@ -15,7 +15,7 @@
         android:label="ksars_smart"
         android:icon="@mipmap/ic_launcher">
         <meta-data android:name="com.google.android.geo.API_KEY"
-            android:value="AIzaSyDDqjP9EknjwoCICN4OHGE0UcDb3q_3y3Q"/>
+            android:value="Your_API_KEY"/>
         <activity
             android:name=".MainActivity"
             android:launchMode="singleTop"
